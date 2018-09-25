@@ -1,0 +1,8 @@
+-Q theories Coinduction
+-Q src Coinduction
+-I src
+src/cUtils.mli
+src/cUtils.ml
+src/g_coinduction.ml4
+src/coinduction_plugin.mllib
+theories/Coinduction.v
