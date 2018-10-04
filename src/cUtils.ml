@@ -1,16 +1,173 @@
-(* This file contains some code from https://github.com/CoqHott/exceptional-tt. *)
-
 open Util
 open CErrors
 open Context
 open Rel.Declaration
-open Names
 open Term
-open EConstr
+open Names
 open Declarations
 open Entries
-open Environ
-open Term
+
+(***************************************************************************************)
+
+(* numbers from m up to but not including n *)
+let range m n =
+  let rec go acc i j =
+    if i >= j then acc else go (i :: acc) (i + 1) j
+  in List.rev (go [] m n)
+
+let string_ends_with s1 s2 =
+  let n1 = String.length s1
+  and n2 = String.length s2
+  in
+  if n1 < n2 then
+    false
+  else
+    String.sub s1 (n1 - n2) n2 = s2
+
+let id_app id app = Id.of_string (Id.to_string id ^ app)
+
+(***************************************************************************************)
+
+let resolve_evars env sigma t =
+  let evm = ref sigma in
+  let t = Typing.e_solve_evars env evm t in
+  (!evm, t)
+
+let intern_constr env evd cexpr =
+  let (t, uctx) = Constrintern.interp_constr env evd cexpr in
+  let sigma = Evd.from_ctx uctx in
+  resolve_evars env sigma t
+
+let to_constr r =
+  match r with
+  | VarRef(v) -> EConstr.mkVar v
+  | ConstRef(c) -> EConstr.mkConst c
+  | IndRef(i) -> EConstr.mkInd i
+  | ConstructRef(cr) -> EConstr.mkConstruct cr
+
+let get_global s =
+  Nametab.locate (Libnames.qualid_of_string s)
+
+let get_global_id id =
+  Nametab.locate (Libnames.qualid_of_ident id)
+
+let get_constr s =
+  to_constr (get_global s)
+
+let get_constr_id id =
+  to_constr (get_global_id id)
+
+let get_inductive s =
+  match get_global s with
+  | IndRef(i) -> i
+  | _ -> failwith "get_inductive: not an inductive type"
+
+let get_inductive_id id =
+  match get_global_id id with
+  | IndRef(i) -> i
+  | _ -> failwith "get_inductive_id: not an inductive type"
+
+let rec close f ctx t =
+  match ctx with
+  | [] -> t
+  | (x,ty) :: l -> f (x, ty, close f l t)
+
+(***************************************************************************************)
+
+let e_new_sort evm =
+  let evd, s = Evd.new_sort_variable Evd.univ_rigid !evm in
+  evm := evd;
+  EConstr.mkSort s
+
+(***************************************************************************************)
+
+let map_fold_constr f acc evd t =
+  let open Constr in
+  let open EConstr in
+  let rec hlp m acc t =
+    let fold_arr k ac ar =
+      let (ac1, lst) =
+        List.fold_left
+          (fun (ac,l) x -> let (ac',x') = hlp k ac x in (ac',x'::l))
+          (ac, [])
+          (Array.to_list ar)
+      in
+      (ac1, Array.of_list (List.rev lst))
+    in
+    match kind evd t with
+    | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _ ->
+       f m acc t
+    | Cast (ty1,ck,ty2) ->
+       let (acc1, ty1') = hlp m acc ty1 in
+       let (acc2, ty2') = hlp m acc1 ty2 in
+       f m acc2 (mkCast(ty1',ck,ty2'))
+    | Prod (na,ty,c)    ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, c') = hlp (m+1) acc1 c in
+       f m acc2 (mkProd(na,ty',c'))
+    | Lambda (na,ty,c)  ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, c') = hlp (m+1) acc1 c in
+       f m acc2 (mkLambda(na,ty',c'))
+    | LetIn (na,b,ty,c) ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, b') = hlp m acc1 b in
+       let (acc3, c') = hlp (m+1) acc2 c in
+       f m acc3 (mkLetIn(na,b',ty',c'))
+    | App (a,args) ->
+       let (acc1, a') = hlp m acc a in
+       let (acc2, args') = fold_arr m acc1 args in
+       f m acc2 (mkApp(a',args'))
+    | Proj (p,c) ->
+       let (acc1, c') = hlp m acc c in
+       f m acc1 (mkProj(p,c'))
+    | Evar (evk,cl) ->
+       let (acc1, cl') = fold_arr m acc cl in
+       f m acc1 (mkEvar(evk,cl'))
+    | Case (ci,p,c,bl) ->
+       let (acc1, p') = hlp m acc p in
+       let (acc2, c') = hlp m acc1 c in
+       let (acc3, bl') = fold_arr m acc2 bl in
+       f m acc3 (mkCase(ci,p',c',bl'))
+    | Fix (nvn,recdef) ->
+       let (fnames,typs,bodies) = recdef in
+       let (acc1, typs') = fold_arr m acc typs in
+       let (acc2, bodies') = fold_arr (m + Array.length typs) acc1 bodies in
+       f m acc2 (mkFix(nvn,(fnames,typs',bodies')))
+    | CoFix (n,recdef) ->
+       let (fnames,typs,bodies) = recdef in
+       let (acc1, typs') = fold_arr m acc typs in
+       let (acc2, bodies') = fold_arr (m + Array.length typs) acc1 bodies in
+       f m acc2 (mkCoFix(n,(fnames,typs',bodies')))
+  in
+  hlp 0 acc t
+
+let map_constr f evd x = snd (map_fold_constr (fun m () t -> ((), f m t)) () evd x)
+
+(***************************************************************************************)
+
+let is_coinductive (ind : inductive) =
+  let mind = fst (Inductive.lookup_mind_specif (Global.env ()) ind) in
+  let open Declarations in
+  match mind.mind_finite with
+  | CoFinite -> true
+  | _ -> false
+
+let get_inductive_typeargs evd (ind : inductive) =
+  let open EConstr in
+  let rec hlp acc t =
+    match kind evd t with
+    | Prod(x, ty, b) -> hlp ((x,ty) :: acc) b
+    | _ -> List.rev acc
+  in
+  let env = Global.env () in
+  let minds = Inductive.lookup_mind_specif env ind in
+  let tp = Inductive.type_of_inductive env (Univ.in_punivs minds) in
+  hlp [] (EConstr.of_constr tp)
+
+(***************************************************************************************)
+
+(* The following contains code from https://github.com/CoqHott/exceptional-tt. *)
 
 let detype_param =
   function
@@ -89,3 +246,29 @@ let process_inductive mib =
     mind_entry_private = mib.mind_private;
     mind_entry_universes = ind_univs
   }
+
+(* The following contains code from https://github.com/ybertot/plugin_tutorials *)
+
+let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook =
+  let open EConstr in
+  let sigma = Evd.minimize_universes evd in
+  let body = to_constr sigma body in
+  let tyopt = Option.map (to_constr sigma) tyopt in
+  let uvars_fold uvars c =
+    Univ.LSet.union uvars (Univops.universes_of_constr env c) in
+  let uvars = List.fold_left uvars_fold Univ.LSet.empty
+     (Option.List.cons tyopt [body]) in
+  let sigma = Evd.restrict_universe_context sigma uvars in
+  let univs = Evd.check_univ_decl ~poly sigma udecl in
+  let ubinders = Evd.universe_binders sigma in
+  let ce = Declare.definition_entry ?types:tyopt ~univs body in
+  DeclareDef.declare_definition ident k ce ubinders imps hook
+
+let declare_definition ident ?(opaque = false) evd body =
+  let env = Global.env () in
+  let (evd, body) = resolve_evars env evd body in
+  let k = (Decl_kinds.Global,
+           Flags.is_universe_polymorphism(), Decl_kinds.Definition) in
+  let udecl = Univdecls.default_univ_decl in
+  let nohook = Lemmas.mk_hook (fun _ x -> x) in
+  ignore (edeclare ident k ~opaque:opaque env evd udecl body None [] nohook)
