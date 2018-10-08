@@ -6,7 +6,11 @@ val range : int -> int -> int list
 
 val string_ends_with : string -> string -> bool
 
+val get_basename : string -> string
+
 val id_app : Id.t -> string -> Id.t
+
+val string_to_id : string -> Id.t
 
 val resolve_evars : Environ.env -> Evd.evar_map -> EConstr.t -> Evd.evar_map * EConstr.t
 
@@ -18,6 +22,8 @@ val get_global : string -> Globnames.global_reference
 
 val get_global_id : Id.t -> Globnames.global_reference
 
+val exists_global : string -> bool
+
 val get_constr : string -> EConstr.t
 
 val get_constr_id : Id.t -> EConstr.t
@@ -25,6 +31,8 @@ val get_constr_id : Id.t -> EConstr.t
 val get_inductive : string -> inductive
 
 val get_inductive_id : Id.t -> inductive
+
+val get_ind_name : inductive -> string
 
 val close : (Name.t * 'a * 'a -> 'a) -> (Name.t * 'a) list -> 'a -> 'a
 

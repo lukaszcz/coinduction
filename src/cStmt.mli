@@ -2,4 +2,6 @@
 
 open Names
 
-val translate_statement : Evd.evar_map -> EConstr.t -> Id.t list * Evd.evar_map * EConstr.t
+val translate_statement :
+  Evd.evar_map -> EConstr.t ->
+  string list (* ind types names *) * Evd.evar_map (* new evd *) * EConstr.t (* translated statement *)

@@ -28,51 +28,76 @@ let fix_cons p n t =
   in
   hlp 1 t
 
+let coind_hash = Hashtbl.create 128
+
+let get_g_name s = get_basename s ^ "__g"
+
 let translate_coinductive evd (ind : inductive) =
-  let env = Global.env () in
-  let mind_body = fst (Inductive.lookup_mind_specif env ind) in
-  let mind = CUtils.process_inductive mind_body in
-  let open Entries in
-  let p = List.length mind.mind_entry_inds
-  and n = List.length mind.mind_entry_params
+  let do_transl () =
+    let env = Global.env () in
+    let mind_body = fst (Inductive.lookup_mind_specif env ind) in
+    let mind = CUtils.process_inductive mind_body in
+    let open Entries in
+    let p = List.length mind.mind_entry_inds
+    and n = List.length mind.mind_entry_params
+    in
+    let ind_names =
+      List.map (fun n -> get_ind_name (fst ind, n))
+        (range 0 (List.length mind.mind_entry_inds))
+    in
+    let ind_types =
+      List.map
+        begin fun name ->
+          EConstr.to_constr evd
+            (Retyping.get_type_of env evd (get_constr name))
+        end
+        ind_names
+    in
+    let inds2 =
+      List.map
+        begin fun e ->
+          { e with
+            mind_entry_typename = id_app e.mind_entry_typename "__g";
+            mind_entry_consnames =
+              List.map (fun id -> id_app id "__g") e.mind_entry_consnames;
+            mind_entry_lc =
+              List.map (fix_cons p n) e.mind_entry_lc;
+          }
+        end
+        mind.mind_entry_inds
+    in
+    let params2 =
+      List.map2 (fun e tp -> (id_app e.mind_entry_typename "__r", tp))
+        mind.mind_entry_inds ind_types
+    in
+    let mind2 =
+      { mind with
+        mind_entry_inds = inds2;
+        mind_entry_params =
+          mind.mind_entry_params @
+            (List.rev (List.map (fun (x, y) -> (x, LocalAssumEntry y)) params2));
+      }
+    in
+    ignore (Declare.declare_mind mind2);
+    let r =
+      (get_ind_name ind, ind_names,
+       List.map (fun (x, y) -> (x, EConstr.of_constr y)) params2)
+    in
+    Hashtbl.add coind_hash ind r;
+    r
   in
-  let inds2 =
-    List.map
-      begin fun e ->
-        { e with
-          mind_entry_typename = id_app e.mind_entry_typename "__g";
-          mind_entry_consnames =
-            List.map (fun id -> id_app id "__g") e.mind_entry_consnames;
-          mind_entry_lc =
-            List.map (fix_cons p n) e.mind_entry_lc;
-        }
-      end
-      mind.mind_entry_inds
-  in
-  let ind_types =
-    List.map
-      begin fun e ->
-        EConstr.to_constr evd
-          (Retyping.get_type_of env evd (get_constr_id e.mind_entry_typename))
-      end
-      mind.mind_entry_inds
-  in
-  let params2 =
-    List.map2 (fun e tp -> (id_app e.mind_entry_typename "__r", tp))
-      mind.mind_entry_inds ind_types
-  in
-  let mind2 =
-    { mind with
-      mind_entry_inds = inds2;
-      mind_entry_params =
-        mind.mind_entry_params @
-          (List.rev (List.map (fun (x, y) -> (x, LocalAssumEntry y)) params2));
-    }
-  in
-  ignore (Declare.declare_mind mind2);
-  ((List.nth mind.mind_entry_inds (snd ind)).mind_entry_typename,
-   List.map (fun e -> e.mind_entry_typename) mind.mind_entry_inds,
-   List.map (fun (x, y) -> (x, EConstr.of_constr y)) params2)
+  if Hashtbl.mem coind_hash ind then
+    begin
+      if exists_global (get_g_name (get_ind_name ind)) then
+        Hashtbl.find coind_hash ind
+      else
+        begin
+          Hashtbl.remove coind_hash ind;
+          do_transl ()
+        end
+    end
+  else
+    do_transl ()
 
 let translate_statement evd t =
   let open Constr in
@@ -81,26 +106,26 @@ let translate_statement evd t =
   in
   let hlp2 ctx ind args =
     if is_coinductive ind then
-      let (id, ind_ids, params2) = translate_coinductive evd ind in
+      let (name, ind_names, params2) = translate_coinductive evd ind in
       let m = List.length ctx
-      and p = List.length ind_ids
+      and p = List.length ind_names
       in
       let args2 =
         Array.append (Array.of_list (List.map mkRel (range (m + p + 2) (m + p + 2 + p)))) args
       in
       let impls =
         List.map2
-          begin fun id i ->
-            let typeargs = get_inductive_typeargs evd (get_inductive_id id) in
+          begin fun name i ->
+            let typeargs = get_inductive_typeargs evd (get_inductive name) in
             let m = List.length typeargs in
             let args1 = Array.of_list (List.rev (List.map mkRel (range 1 (m + 1)))) in
             let args2 = Array.of_list (List.rev (List.map mkRel (range 2 (m + 2)))) in
-            (id_app id "__r__inj",
+            (string_to_id (name ^ "__r__inj"),
              close mkProd typeargs (mkProd (Name.Anonymous,
-                                            mkApp (get_constr_id id, args1),
+                                            mkApp (get_constr name, args1),
                                             mkApp (mkRel (p - snd ind + i + m + 1), args2))))
           end
-          ind_ids
+          ind_names
           (range 0 p)
       in
       let r =
@@ -108,9 +133,9 @@ let translate_statement evd t =
           (close mkProd (fix_ctx impls)
              (mkProd (Name.Anonymous,
                       close mkProd (List.rev ctx) (mkApp (mkRel (p - snd ind + m + p), args)),
-                      close mkProd (List.rev ctx) (mkApp (get_constr_id (id_app id "__g"), args2)))))
+                      close mkProd (List.rev ctx) (mkApp (get_constr (get_g_name name), args2)))))
       in
-      (ind_ids, evd, r)
+      (ind_names, evd, r)
     else
       failwith "unsupported coinductive statement"
   in

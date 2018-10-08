@@ -24,7 +24,16 @@ let string_ends_with s1 s2 =
   else
     String.sub s1 (n1 - n2) n2 = s2
 
+let get_basename s  =
+  try
+    let i = String.rindex s '.' in
+    String.sub s (i + 1) (String.length s - i - 1)
+  with Not_found ->
+    s
+
 let id_app id app = Id.of_string (Id.to_string id ^ app)
+
+let string_to_id s = Id.of_string (get_basename s)
 
 (***************************************************************************************)
 
@@ -51,6 +60,12 @@ let get_global s =
 let get_global_id id =
   Nametab.locate (Libnames.qualid_of_ident id)
 
+let exists_global s =
+  try
+    ignore (get_global s);
+    true
+  with Not_found -> false
+
 let get_constr s =
   to_constr (get_global s)
 
@@ -66,6 +81,9 @@ let get_inductive_id id =
   match get_global_id id with
   | IndRef(i) -> i
   | _ -> failwith "get_inductive_id: not an inductive type"
+
+let get_ind_name ind =
+  Libnames.string_of_path (Nametab.path_of_global (Globnames.canonical_gr (IndRef ind)))
 
 let rec close f ctx t =
   match ctx with

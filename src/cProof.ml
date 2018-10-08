@@ -3,21 +3,17 @@
 open Names
 open CUtils
 
-let translate_proof ind_ids evd ty prf =
+let get_canonical_ind_name s = get_ind_name (get_inductive s)
+
+let translate_proof ind_names evd ty prf =
   let open Constr in
   let open EConstr in
-  let p = List.length ind_ids in
-  let g_ind_names =
-    List.map
-      begin fun id ->
-        let s = Id.to_string id in
-        (MutInd.to_string (fst (get_inductive (s ^ "__g"))), s)
-      end
-      ind_ids
+  let p = List.length ind_names in
+  let g_ind_names = List.map (fun s -> (get_canonical_ind_name (get_basename s ^ "__g"), s)) ind_names
   in
-  let is_g_ind ind = List.mem_assoc (MutInd.to_string (fst ind)) g_ind_names in
+  let is_g_ind ind = List.mem_assoc (get_ind_name ind) g_ind_names in
   let fix_g_ind ind =
-    let s = MutInd.to_string (fst ind) in
+    let s = get_ind_name ind in
     get_inductive (List.assoc s g_ind_names)
   in
   let the_True = get_constr "True" in
@@ -28,15 +24,15 @@ let translate_proof ind_ids evd ty prf =
   in
   let injs =
     List.map
-      begin fun id ->
-        let typeargs = get_inductive_typeargs evd (get_inductive_id id) in
+      begin fun name ->
+        let typeargs = get_inductive_typeargs evd (get_inductive name) in
         let m = List.length typeargs in
         let args = Array.of_list (List.rev (List.map mkRel (range 1 (m + 1)))) in
         close mkLambda typeargs (mkLambda (Name.Anonymous,
-                                           mkApp (get_constr_id id, args),
+                                           mkApp (get_constr name, args),
                                            mkRel 1))
       end
-      ind_ids
+      ind_names
   in
   let rec hlp m t =
     if m = 2 * p + 1 then

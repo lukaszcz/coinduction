@@ -9,7 +9,6 @@ let () = Mltop.add_known_plugin (fun () ->
   "Coinduction"
 ;;
 
-open Names
 open Ltac_plugin
 open Stdarg
 open Extraargs
@@ -21,7 +20,7 @@ let do_coinduction id cexpr =
   let env = Global.env () in
   let evd = Evd.from_env env in
   let (evd, ty) = intern_constr env evd cexpr in
-  let (ind_ids, evd, ty') = CStmt.translate_statement evd ty in
+  let (ind_names, evd, ty') = CStmt.translate_statement evd ty in
   let (evd, ty') = resolve_evars (Global.env ()) evd ty' in
   let terminator com =
     let open Proof_global in
@@ -39,11 +38,11 @@ let do_coinduction id cexpr =
          | _ -> assert false
     in
     let ((prf, uctxs), ()) = Future.force Entries.(lemma_def.const_entry_body) in
-    let ust = UState.of_context_set uctxs in
-    (*    let evd = Evd.from_ctx ust in *)
-    msg_info Pp.(str "akuku 0!");
-    let (evd, prf) = CProof.translate_proof ind_ids evd ty (EConstr.of_constr prf) in
-    msg_info Pp.(str "akuku!");
+    (* I'm not sure if ignoring uctxs won't create a bug somewhere,
+       but I don't know how to combine it with evd *)
+    (* let ust = UState.of_context_set uctxs in
+       let evd2 = Evd.from_ctx ust in *)
+    let (evd, prf) = CProof.translate_proof ind_names evd ty (EConstr.of_constr prf) in
     CUtils.declare_definition id evd prf
   in
   let terminator = Proof_global.make_terminator terminator in
