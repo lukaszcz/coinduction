@@ -9,6 +9,7 @@ let () = Mltop.add_known_plugin (fun () ->
   "Coinduction"
 ;;
 
+open Names
 open Ltac_plugin
 open Stdarg
 open Extraargs
@@ -47,12 +48,25 @@ let do_coinduction id cexpr =
   in
   let terminator = Proof_global.make_terminator terminator in
   let kind = Decl_kinds.(Global, Flags.is_universe_polymorphism(), DefinitionBody Definition) in
-  Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty')] terminator
+  Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty')] terminator;
+  let p = List.length ind_names in
+  let tac =
+    let rec hlp n =
+      if n = 0 then
+        Tactics.introduction (Id.of_string "CH")
+      else
+        Proofview.tclTHEN Tactics.intro (hlp (n - 1))
+    in
+    hlp (2 * p)
+  in
+  ignore (Proof_global.with_current_proof begin fun _ prf ->
+    Proof.run_tactic env tac prf
+  end)
 
 (***************************************************************************************)
 
 let classify_proof_start_cmd _ = Vernacexpr.(VtStartProof ("Classic",Doesn'tGuaranteeOpacity,[]),VtLater)
 
 VERNAC COMMAND EXTEND Coinduction_cmd CLASSIFIED BY classify_proof_start_cmd
-| [ "Coinduction" ident(id) ":" lconstr(t) ] -> [ do_coinduction id t ]
+| [ "CoInduction" ident(id) ":" lconstr(t) ] -> [ do_coinduction id t ]
 END

@@ -10,3 +10,4 @@ src/cProof.ml
 src/g_coinduction.ml4
 src/coinduction_plugin.mllib
 theories/Coinduction.v
+theories/Tactics.v
