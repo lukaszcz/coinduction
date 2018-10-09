@@ -1,4 +1,4 @@
-(* Proof translation -- implementation *)
+(* Proof translation *)
 
 open Names
 
