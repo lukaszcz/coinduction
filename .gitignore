@@ -3,8 +3,6 @@
 *.glob
 *.vo
 *~
-predict
-htimeout
 Makefile.coq
 Makefile.coq.bak
 Makefile.coq.conf

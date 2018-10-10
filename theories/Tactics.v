@@ -558,7 +558,7 @@ Ltac dsolve :=
     | _ => auto with chints; try yeasy
   end.
 
-Ltac ctrivial := try solve [ unfold iff in *; unfold not in *; unshelve isolve; dsolve ].
+Ltac ctrivial := try solve [ autounfold with chints; unfold iff in *; unfold not in *; unshelve isolve; dsolve ].
 
 Ltac bnat_reflect :=
   repeat match goal with
@@ -1053,11 +1053,15 @@ Ltac forward_reasoning n :=
   | S ?k => yforwarding; forward_reasoning k
   end.
 
+Ltac crewrite := cbn in *; autorewrite with rhints chints list in *.
+
 Ltac ccrush :=
-  ctrivial; eauto; sintuition; cbn in *; bnat_reflect; simp_hyps; forward_reasoning 3; simp_hyps; ctrivial;
-  autorewrite with chints list in *; simp_hyps; ctrivial;
+  ctrivial; eauto; sintuition;
+  crewrite; bnat_reflect; simp_hyps;
+  forward_reasoning 3; simp_hyps; ctrivial;
+  crewrite; simp_hyps; ctrivial;
   repeat instering; simp_hyps; ctrivial;
-  bnat_reflect; autorewrite with rhints chints list in *; simp_hyps;
+  bnat_reflect; crewrite; simp_hyps;
   ctrivial; try yelles 1; try solve [ sauto; yelles 1 ];
   try congruence;
   try match goal with
@@ -1068,18 +1072,18 @@ Ltac ccrush :=
       | [ H : ?T |- _ ] =>
         isPropAtom T; yinversion H; cbn in *; try subst; simp_hyps; eauto with chints; yelles 1
       end.
-Ltac cauto := ctrivial; yelles 1.
-Ltac csauto := ctrivial; sauto; yelles 1.
+Ltac ceasy := ctrivial; eauto; yelles 1.
+Ltac cseasy := ctrivial; eauto; sauto; yelles 1.
 Ltac cyelles n := ccrush; yelles n.
 
 Ltac csolve0 H tac :=
-  intros; autorewrite with rhints;
-  solve [ econstructor; solve [ eapply H; clear H; tac | try clear H; tac ] | try clear H; tac ].
+  intros; autorewrite with rhints; cbn;
+  solve [ econstructor; cbn; solve [ simple eapply H; clear H; tac | try clear H; tac ] | try clear H; tac ].
 
 (* "csolve CH" solves the current goal, ensuring that the coinductive
    hypothesis CH is used in a guarded manner *)
-Tactic Notation "csolve" hyp(H) := csolve0 H ltac:(ccrush).
-Tactic Notation "csolve" hyp(H) "using" tactic(tac) := csolve0 H tac.
+Tactic Notation "csolve" hyp(H) := try csolve0 H ltac:(ccrush).
+Tactic Notation "csolve" hyp(H) "using" tactic(tac) := try csolve0 H tac.
 
 Ltac coind_solve C tac :=
   intros_until_prop_atom;
@@ -1092,8 +1096,8 @@ Ltac coind_solve C tac :=
     try solve [ csolve0 C tac ]
   end.
 
-Tactic Notation "csolve" hyp(H) "on" "*"  := coind_solve H ltac:(ccrush).
-Tactic Notation "csolve" hyp(H) "using" tactic(tac) := coind_solve H tac.
+Tactic Notation "csolve" hyp(H) "on" "*"  := coind_solve H ltac:(ctrivial).
+Tactic Notation "csolve" hyp(H) "on" "*" "using" tactic(tac) := coind_solve H tac.
 Tactic Notation "csolve" "on" "*" := coind_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" "*" "using" tactic(tac) := coind_solve 0 tac.
 
@@ -1113,12 +1117,44 @@ Ltac coind_on_solve C tac :=
     try solve [ csolve0 C tac ]
   end.
 
-Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) := do n intro; coind_on_solve H ltac:(eauto; yelles 1).
+Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) := do n intro; coind_on_solve H ltac:(ctrivial).
 Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve H tac.
-Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(eauto; yelles 1).
+Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(ctrivial).
 Tactic Notation "csolve" "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve 0 tac.
 
-Tactic Notation "csolve" hyp(H) "on" ident(n) := intros until n; revert n; coind_on_solve H ltac:(eauto; yelles 1).
+Tactic Notation "csolve" hyp(H) "on" ident(n) := intros until n; revert n; coind_on_solve H ltac:(ctrivial).
 Tactic Notation "csolve" hyp(H) "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve H tac.
-Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(eauto; yelles 1).
+Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(ctrivial).
 Tactic Notation "csolve" "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve 0 tac.
+
+Tactic Notation "coinduction" ident(H) := autounfold with chints; cofix H; csolve H using ctrivial.
+Tactic Notation "coinduction" ident(H) "using" tactic(tac) := autounfold with chints; cofix H; csolve H using tac.
+Tactic Notation "coinduction" := let H := fresh "CH" in coinduction H using ccrush.
+Tactic Notation "coinduction" "using" tactic(tac) := let H := fresh "CH" in coinduction H using tac.
+
+Tactic Notation "coinduction" ident(H) "on" "*" :=
+  autounfold with chints; cofix H; csolve H on * using ctrivial.
+Tactic Notation "coinduction" ident(H) "on" "*" "using" tactic(tac) :=
+  autounfold with chints; cofix H; csolve H on * using tac.
+Tactic Notation "coinduction" "on" "*" :=
+  let H := fresh "CH" in coinduction H on * using ccrush.
+Tactic Notation "coinduction" "on" "*" "using" tactic(tac) :=
+  let H := fresh "CH" in coinduction H on * using tac.
+
+Tactic Notation "coinduction" ident(H) "on" ident(n) :=
+  autounfold with chints; cofix H; csolve H on n using ctrivial.
+Tactic Notation "coinduction" ident(H) "on" ident(n) "using" tactic(tac) :=
+  autounfold with chints; cofix H; csolve H on n using tac.
+Tactic Notation "coinduction" "on" ident(n) :=
+  let H := fresh "CH" in coinduction H on n using ccrush.
+Tactic Notation "coinduction" "on" ident(n) "using" tactic(tac) :=
+  let H := fresh "CH" in coinduction H on n using tac.
+
+Tactic Notation "coinduction" ident(H) "on" "hyp" int_or_var(n) :=
+  autounfold with chints; cofix H; csolve H on hyp n using ctrivial.
+Tactic Notation "coinduction" ident(H) "on" "hyp" int_or_var(n) "using" tactic(tac) :=
+  autounfold with chints; cofix H; csolve H on hyp n using tac.
+Tactic Notation "coinduction" "on" "hyp" int_or_var(n) :=
+  let H := fresh "CH" in coinduction H on hyp n using ccrush.
+Tactic Notation "coinduction" "on" "hyp" int_or_var(n) "using" tactic(tac) :=
+  let H := fresh "CH" in coinduction H on hyp n using tac.
