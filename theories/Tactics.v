@@ -1078,7 +1078,9 @@ Ltac cyelles n := ccrush; yelles n.
 
 Ltac csolve0 H tac :=
   intros; autorewrite with rhints; cbn;
-  solve [ econstructor; cbn; solve [ simple eapply H; clear H; tac | try clear H; tac ] | try clear H; tac ].
+  solve [ econstructor; cbn;
+          solve [ first [ simple eapply H | intros; simple eapply H ]; clear H; tac | try clear H; tac ]
+        | try clear H; tac ].
 
 (* "csolve CH" solves the current goal, ensuring that the coinductive
    hypothesis CH is used in a guarded manner *)
