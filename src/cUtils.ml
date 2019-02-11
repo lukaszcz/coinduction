@@ -6,6 +6,7 @@ open Term
 open Names
 open Declarations
 open Entries
+open Globnames
 
 (***************************************************************************************)
 
@@ -37,10 +38,7 @@ let string_to_id s = Id.of_string (get_basename s)
 
 (***************************************************************************************)
 
-let resolve_evars env sigma t =
-  let evm = ref sigma in
-  let t = Typing.e_solve_evars env evm t in
-  (!evm, t)
+let resolve_evars = Typing.solve_evars
 
 let intern_constr env evd cexpr =
   let (t, uctx) = Constrintern.interp_constr env evd cexpr in
@@ -253,9 +251,9 @@ let process_inductive mib =
   let inds = Array.map_to_list map mib.mind_packets in
   let (params', inds') = abstract_inductive nparams inds in
   let record = match mib.mind_record with
-    | Some (Some (id, _, _)) -> Some (Some id)
-    | Some None -> Some None
-    | None -> None
+    | PrimRecord arr -> Some (Some (Array.map (fun (id, _, _) -> id) arr))
+    | FakeRecord -> Some None
+    | NotRecord -> None
   in
   { mind_entry_record = record;
     mind_entry_finite = mib.mind_finite;
@@ -273,7 +271,7 @@ let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook 
   let body = to_constr sigma body in
   let tyopt = Option.map (to_constr sigma) tyopt in
   let uvars_fold uvars c =
-    Univ.LSet.union uvars (Univops.universes_of_constr env c) in
+    Univ.LSet.union uvars (Univops.universes_of_constr c) in
   let uvars = List.fold_left uvars_fold Univ.LSet.empty
      (Option.List.cons tyopt [body]) in
   let sigma = Evd.restrict_universe_context sigma uvars in
@@ -287,6 +285,6 @@ let declare_definition ident ?(opaque = false) evd body =
   let (evd, body) = resolve_evars env evd body in
   let k = (Decl_kinds.Global,
            Flags.is_universe_polymorphism(), Decl_kinds.Definition) in
-  let udecl = Univdecls.default_univ_decl in
+  let udecl = UState.default_univ_decl in
   let nohook = Lemmas.mk_hook (fun _ x -> x) in
   ignore (edeclare ident k ~opaque:opaque env evd udecl body None [] nohook)
