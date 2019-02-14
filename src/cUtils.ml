@@ -38,12 +38,10 @@ let string_to_id s = Id.of_string (get_basename s)
 
 (***************************************************************************************)
 
-let resolve_evars = Typing.solve_evars
-
 let intern_constr env evd cexpr =
   let (t, uctx) = Constrintern.interp_constr env evd cexpr in
   let sigma = Evd.from_ctx uctx in
-  resolve_evars env sigma t
+  Typing.solve_evars env sigma t
 
 let to_constr r =
   match r with
@@ -282,7 +280,7 @@ let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook 
 
 let declare_definition ident ?(opaque = false) evd body =
   let env = Global.env () in
-  let (evd, body) = resolve_evars env evd body in
+  let (evd, body) = Typing.solve_evars env evd body in
   let k = (Decl_kinds.Global,
            Flags.is_universe_polymorphism(), Decl_kinds.Definition) in
   let udecl = UState.default_univ_decl in

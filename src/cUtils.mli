@@ -12,8 +12,6 @@ val id_app : Id.t -> string -> Id.t
 
 val string_to_id : string -> Id.t
 
-val resolve_evars : Environ.env -> Evd.evar_map -> EConstr.t -> Evd.evar_map * EConstr.t
-
 val intern_constr : Environ.env -> Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * EConstr.t
 
 val to_constr : Globnames.global_reference -> EConstr.t

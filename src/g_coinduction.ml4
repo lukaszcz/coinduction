@@ -22,7 +22,7 @@ let do_coinduction id cexpr =
   let evd = Evd.from_env env in
   let (evd, ty) = intern_constr env evd cexpr in
   let (ind_names, evd, ty') = CStmt.translate_statement evd ty in
-  let (evd, ty') = resolve_evars (Global.env ()) evd ty' in
+  let (evd, ty') = Typing.solve_evars (Global.env ()) evd ty' in
   let terminator com =
     let open Proof_global in
     let (opaque, lemma_def) =
