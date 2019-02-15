@@ -34,7 +34,7 @@ let do_coinduction id cexpr =
       | Proved (opaque, None, obj) ->
          match Proof_global.(obj.entries) with
          | [lemma_def] ->
-            (opaque <> Vernacexpr.Transparent,
+            (opaque <> Proof_global.Transparent,
              Safe_typing.inline_private_constants_in_definition_entry env lemma_def)
          | _ -> assert false
     in

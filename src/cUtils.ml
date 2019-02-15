@@ -53,7 +53,7 @@ let to_constr r =
 let get_global s =
   Nametab.locate (Libnames.qualid_of_string s)
 
-let get_global_id id =
+let get_global_from_id id =
   Nametab.locate (Libnames.qualid_of_ident id)
 
 let exists_global s =
@@ -65,18 +65,18 @@ let exists_global s =
 let get_constr s =
   to_constr (get_global s)
 
-let get_constr_id id =
-  to_constr (get_global_id id)
+let get_constr_from_id id =
+  to_constr (get_global_from_id id)
 
 let get_inductive s =
   match get_global s with
   | IndRef(i) -> i
   | _ -> failwith "get_inductive: not an inductive type"
 
-let get_inductive_id id =
-  match get_global_id id with
+let get_inductive_from_id id =
+  match get_global_from_id id with
   | IndRef(i) -> i
-  | _ -> failwith "get_inductive_id: not an inductive type"
+  | _ -> failwith "get_inductive_from_id: not an inductive type"
 
 let get_ind_name ind =
   Libnames.string_of_path (Nametab.path_of_global (Globnames.canonical_gr (IndRef ind)))
