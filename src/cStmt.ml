@@ -1,9 +1,31 @@
 (* Statement translation -- implementation *)
+(* Read first:
+   https://coq.inria.fr/distrib/current/refman/language/cic.html#inductive-definitions,
+   kernel/entries.ml, kernel/constr.mli *)
 
 open CUtils
 open Names
 
+type copred = {
+  name : string; (* original name of the coinductive type *)
+  ex_args : bool list; (* which arguments are existential variables? *)
+  ind_names : string list; (* original names of coinductive types in the same mutual-coinductive block *)
+  ind_arities : Constr.t list; (* original arities *)
+}
+
+type coarg =
+    ATerm of EConstr.t
+  | AEx of int
+
+type stmt =
+    SProd of Name.t * EConstr.t (* type *) * stmt (* body *)
+  | SPred of copred * coarg list
+  | SAnd (* and-like inductive type *) of inductive * stmt list
+  | SEx (* exists-like inductive type *) of
+      inductive * Name.t (* variable name *) * stmt (* type *) * stmt (* body *)
+
 (* n - the original number of parameters *)
+(* p - the number of mutual-coinductive types in the block *)
 let fix_cons p n t =
   let open Constr in
   let get_params2 m =
@@ -14,6 +36,8 @@ let fix_cons p n t =
     | Prod (na, ty, c) ->
        mkProd (na, ty, (hlp (m + 1) c))
     | Rel i when i >= n + m ->
+       (* this Rel points to the arity of one of the coinductive types;
+          see kernel/entries.ml *)
        mkApp (mkRel (i + p), get_params2 m)
     | App (c, args) ->
        begin
@@ -39,7 +63,9 @@ let translate_coinductive evd (ind : inductive) =
     let mind = CUtils.process_inductive mind_body in
     let open Entries in
     let p = List.length mind.mind_entry_inds
+    (* p - the number of mutual-coinductive types in the block *)
     and n = List.length mind.mind_entry_params
+    (* n - original number of parameters *)
     in
     let ind_names =
       List.map (fun n -> get_ind_name (fst ind, n))
@@ -67,6 +93,7 @@ let translate_coinductive evd (ind : inductive) =
         mind.mind_entry_inds
     in
     let params2 =
+      (* pairs (red name, arity) *)
       List.map2 (fun e tp -> (id_app e.mind_entry_typename "__r", tp))
         mind.mind_entry_inds ind_types
     in
