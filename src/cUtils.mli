@@ -2,7 +2,12 @@
 
 open Names
 
-val range : int -> int -> int list
+(* numbers from m up to but not including n *)
+val range : int (* m *) -> int (* n *) -> int list
+
+val take : int -> 'a list -> 'a list
+
+val drop : int -> 'a list -> 'a list
 
 val string_ends_with : string -> string -> bool
 
@@ -39,6 +44,10 @@ val e_new_sort : Evd.evar_map ref -> EConstr.t
 val map_fold_constr : (int -> 'a -> EConstr.t -> 'a * EConstr.t) -> 'a -> Evd.evar_map -> EConstr.t -> 'a * EConstr.t
 
 val map_constr : (int -> EConstr.t -> EConstr.t) -> Evd.evar_map -> EConstr.t -> EConstr.t
+
+val map_fold_constr_ker : (int -> 'a -> Constr.t -> 'a * Constr.t) -> 'a -> Constr.t -> 'a * Constr.t
+
+val map_constr_ker : (int -> Constr.t -> Constr.t) -> Constr.t -> Constr.t
 
 val is_coinductive : inductive -> bool
 

@@ -3,6 +3,8 @@
 -I src
 src/cUtils.mli
 src/cUtils.ml
+src/cPred.mli
+src/cPred.ml
 src/cStmt.mli
 src/cStmt.ml
 src/cProof.mli

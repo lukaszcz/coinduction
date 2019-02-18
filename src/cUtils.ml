@@ -16,6 +16,23 @@ let range m n =
     if i >= j then acc else go (i :: acc) (i + 1) j
   in List.rev (go [] m n)
 
+
+let rec take n lst =
+  if n > 0 then
+    match lst with
+    | [] -> []
+    | h :: t -> h :: take (n - 1) t
+  else
+    []
+
+let rec drop n lst =
+  if n > 0 then
+    match lst with
+    | [] -> []
+    | h :: t -> drop (n - 1) t
+  else
+    lst
+
 let string_ends_with s1 s2 =
   let n1 = String.length s1
   and n2 = String.length s2
@@ -158,6 +175,68 @@ let map_fold_constr f acc evd t =
 
 let map_constr f evd x = snd (map_fold_constr (fun m () t -> ((), f m t)) () evd x)
 
+let map_fold_constr_ker f acc t =
+  let open Constr in
+  let rec hlp m acc t =
+    let fold_arr k ac ar =
+      let (ac1, lst) =
+        List.fold_left
+          (fun (ac,l) x -> let (ac',x') = hlp k ac x in (ac',x'::l))
+          (ac, [])
+          (Array.to_list ar)
+      in
+      (ac1, Array.of_list (List.rev lst))
+    in
+    match kind t with
+    | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _ ->
+       f m acc t
+    | Cast (ty1,ck,ty2) ->
+       let (acc1, ty1') = hlp m acc ty1 in
+       let (acc2, ty2') = hlp m acc1 ty2 in
+       f m acc2 (mkCast(ty1',ck,ty2'))
+    | Prod (na,ty,c)    ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, c') = hlp (m+1) acc1 c in
+       f m acc2 (mkProd(na,ty',c'))
+    | Lambda (na,ty,c)  ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, c') = hlp (m+1) acc1 c in
+       f m acc2 (mkLambda(na,ty',c'))
+    | LetIn (na,b,ty,c) ->
+       let (acc1, ty') = hlp m acc ty in
+       let (acc2, b') = hlp m acc1 b in
+       let (acc3, c') = hlp (m+1) acc2 c in
+       f m acc3 (mkLetIn(na,b',ty',c'))
+    | App (a,args) ->
+       let (acc1, a') = hlp m acc a in
+       let (acc2, args') = fold_arr m acc1 args in
+       f m acc2 (mkApp(a',args'))
+    | Proj (p,c) ->
+       let (acc1, c') = hlp m acc c in
+       f m acc1 (mkProj(p,c'))
+    | Evar (evk,cl) ->
+       let (acc1, cl') = fold_arr m acc cl in
+       f m acc1 (mkEvar(evk,cl'))
+    | Case (ci,p,c,bl) ->
+       let (acc1, p') = hlp m acc p in
+       let (acc2, c') = hlp m acc1 c in
+       let (acc3, bl') = fold_arr m acc2 bl in
+       f m acc3 (mkCase(ci,p',c',bl'))
+    | Fix (nvn,recdef) ->
+       let (fnames,typs,bodies) = recdef in
+       let (acc1, typs') = fold_arr m acc typs in
+       let (acc2, bodies') = fold_arr (m + Array.length typs) acc1 bodies in
+       f m acc2 (mkFix(nvn,(fnames,typs',bodies')))
+    | CoFix (n,recdef) ->
+       let (fnames,typs,bodies) = recdef in
+       let (acc1, typs') = fold_arr m acc typs in
+       let (acc2, bodies') = fold_arr (m + Array.length typs) acc1 bodies in
+       f m acc2 (mkCoFix(n,(fnames,typs',bodies')))
+  in
+  hlp 0 acc t
+
+let map_constr_ker f x = snd (map_fold_constr_ker (fun m () t -> ((), f m t)) () x)
+
 (***************************************************************************************)
 
 let is_coinductive (ind : inductive) =
@@ -266,8 +345,8 @@ let process_inductive mib =
 let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook =
   let open EConstr in
   let sigma = Evd.minimize_universes evd in
-  let body = to_constr sigma body in
-  let tyopt = Option.map (to_constr sigma) tyopt in
+  let body = EConstr.to_constr sigma body in
+  let tyopt = Option.map (EConstr.to_constr sigma) tyopt in
   let uvars_fold uvars c =
     Univ.LSet.union uvars (Univops.universes_of_constr c) in
   let uvars = List.fold_left uvars_fold Univ.LSet.empty
@@ -282,7 +361,7 @@ let declare_definition ident ?(opaque = false) evd body =
   let env = Global.env () in
   let (evd, body) = Typing.solve_evars env evd body in
   let k = (Decl_kinds.Global,
-           Flags.is_universe_polymorphism(), Decl_kinds.Definition) in
+           Flags.is_universe_polymorphism (), Decl_kinds.Definition) in
   let udecl = UState.default_univ_decl in
   let nohook = Lemmas.mk_hook (fun _ x -> x) in
   ignore (edeclare ident k ~opaque:opaque env evd udecl body None [] nohook)

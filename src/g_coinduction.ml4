@@ -1,6 +1,6 @@
 DECLARE PLUGIN "coinduction_plugin"
 
-let coind_version_string = "CoInduction (dev) for Coq 8.8"
+let coind_version_string = "CoInduction (dev) for Coq 8.9"
 
 open Feedback
 
@@ -41,8 +41,6 @@ let do_coinduction id cexpr =
     let ((prf, uctxs), ()) = Future.force Entries.(lemma_def.const_entry_body) in
     (* I'm not sure if ignoring uctxs won't create a bug somewhere,
        but I don't know how to combine it with evd *)
-    (* let ust = UState.of_context_set uctxs in
-       let evd2 = Evd.from_ctx ust in *)
     let (evd, prf) = CProof.translate_proof ind_names evd ty (EConstr.of_constr prf) in
     CUtils.declare_definition id evd prf
   in
