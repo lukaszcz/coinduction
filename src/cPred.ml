@@ -10,10 +10,11 @@ open Names
 module IntMap = Map.Make(struct type t = int let compare : int -> int -> int = compare end)
 
 type copred = {
-  name : string; (* original name of the coinductive type *)
-  ex_args : bool list; (* which arguments are existential variables? *)
-  ind_names : string list; (* original names of coinductive types in the same mutual-coinductive block *)
-  ind_types : EConstr.t list; (* original arities *)
+  cop_name : string; (* original name of the coinductive type *)
+  cop_type : EConstr.t; (* original arity *)
+  cop_ex_args : bool list; (* which arguments are existential variables? *)
+  cop_ind_names : string list; (* original names of coinductive types in the same mutual-coinductive block *)
+  cop_ind_types : EConstr.t list; (* original arities *)
 }
 
 let get_suffix (ex_args : bool list) =
@@ -22,8 +23,8 @@ let get_suffix (ex_args : bool list) =
   else
     ""
 let get_name name ex_args suf = get_basename (name) ^ suf ^ get_suffix ex_args
-let get_green_name (p : copred) name = get_name name p.ex_args "__g"
-let get_red_name (p : copred) name = get_name name p.ex_args "__r"
+let get_green_name (p : copred) name = get_name name p.cop_ex_args "__g"
+let get_red_name (p : copred) name = get_name name p.cop_ex_args "__r"
 
 (* TODO: injection axioms as parameters *)
 
@@ -205,15 +206,19 @@ let translate_coinductive evd (ind : inductive) (ex_args : bool list) =
       }
     in
     ignore (Declare.declare_mind mind2);
-    let pred = { name = get_ind_name ind; ex_args = ex_args; ind_names = ind_names; ind_types = ind_types }
+    let pred = { cop_name = get_ind_name ind;
+                 cop_type = Retyping.get_type_of env evd (get_constr (get_ind_name ind));
+                 cop_ex_args = ex_args;
+                 cop_ind_names = ind_names;
+                 cop_ind_types = ind_types }
     in
     Hashtbl.add coind_hash (ind, ex_args) pred;
-    pred
+    (evd, pred)
   in
   if Hashtbl.mem coind_hash (ind, ex_args) then
     begin
       if exists_global (get_name (get_ind_name ind) ex_args "__g") then
-        Hashtbl.find coind_hash (ind, ex_args)
+        (evd, Hashtbl.find coind_hash (ind, ex_args))
       else
         begin
           Hashtbl.remove coind_hash (ind, ex_args);

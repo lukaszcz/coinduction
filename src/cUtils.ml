@@ -98,6 +98,11 @@ let get_inductive_from_id id =
 let get_ind_name ind =
   Libnames.string_of_path (Nametab.path_of_global (Globnames.canonical_gr (IndRef ind)))
 
+let get_ind_nparams ind =
+  let mind = fst (Inductive.lookup_mind_specif (Global.env ()) ind) in
+  let open Declarations in
+  mind.mind_nparams
+
 let rec close f ctx t =
   match ctx with
   | [] -> t
@@ -246,7 +251,112 @@ let is_coinductive (ind : inductive) =
   | CoFinite -> true
   | _ -> false
 
+let is_like f (ind : inductive) =
+  let mind = fst (Inductive.lookup_mind_specif (Global.env ()) ind) in
+  let open Declarations in
+  if mind.mind_ntypes <> 1 then
+    false
+  else
+    let body = mind.mind_packets.(0) in
+    if Array.length body.mind_user_lc <> 1 then
+      false
+    else
+      f (mind.mind_nparams) (body.mind_user_lc.(0))
+
+let is_and_like =
+  is_like begin fun p t ->
+    let open Constr in
+    let rec drop_params n t cont =
+      if n = 0 then
+        cont t
+      else
+        match kind t with
+        | Prod(na, ty, b) -> drop_params (n - 1) b cont
+        | _ -> false
+    in
+    let rec hlp n t =
+      match kind t with
+      | Prod(na, ty, b) ->
+         begin
+           match kind ty with
+           | Rel k when k <= n + p && k > n -> hlp (n + 1) b
+           | _ -> false
+         end
+      | App (r, args) ->
+         begin
+           match kind r with
+           | Rel k when k = n + p + 1 ->
+              List.filter begin fun x ->
+                match kind x with
+                | Rel k when k <= n + p && k > n -> false
+                | _ -> true
+              end (Array.to_list args)
+              = []
+           | _ -> false
+         end
+      | _ -> false
+    in
+    drop_params p t (hlp 0)
+  end
+
+let is_exists_like =
+  is_like begin fun p t ->
+    if p <> 2 then
+      false
+    else
+      let open Constr in
+      match kind t with
+      | Prod(_, _, t) ->
+         begin
+           match kind t with
+           | Prod(_, _, t) ->
+              begin
+                match kind t with
+                | Prod(_, r, t) ->
+                   begin
+                     match kind r with
+                     | Rel 2 ->
+                        begin
+                          match kind t with
+                          | Prod(_, app, t) ->
+                             begin
+                               match kind app with
+                               | App(r, args) ->
+                                  begin
+                                    match args with
+                                    | [| a1; a2 |] ->
+                                       begin
+                                         match (kind a1, kind a2) with
+                                         | (Rel 2, Rel 1) ->
+                                            begin
+                                              match kind t with
+                                              | App(r, _) ->
+                                                 begin
+                                                   match kind r with
+                                                   | Rel 5 -> true
+                                                   | _ -> false
+                                                 end
+                                              | _ -> false
+                                            end
+                                         | _ -> false
+                                       end
+                                    | _ -> false
+                                  end
+                               | _ -> false
+                             end
+                          | _ -> false
+                        end
+                     | _ -> false
+                   end
+                | _ -> false
+              end
+           | _ -> false
+         end
+      |  _ -> false
+  end
+
 let get_inductive_typeargs evd (ind : inductive) =
+  let open Constr in
   let open EConstr in
   let rec hlp acc t =
     match kind evd t with
@@ -343,7 +453,6 @@ let process_inductive mib =
 (* The following contains code from https://github.com/ybertot/plugin_tutorials *)
 
 let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook =
-  let open EConstr in
   let sigma = Evd.minimize_universes evd in
   let body = EConstr.to_constr sigma body in
   let tyopt = Option.map (EConstr.to_constr sigma) tyopt in

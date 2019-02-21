@@ -21,8 +21,11 @@ let do_coinduction id cexpr =
   let env = Global.env () in
   let evd = Evd.from_env env in
   let (evd, ty) = intern_constr env evd cexpr in
-  let (ind_names, evd, ty') = CStmt.translate_statement evd ty in
-  let (evd, ty') = Typing.solve_evars (Global.env ()) evd ty' in
+  let (evd, stmt, ty1, ty2) = CStmt.translate_statement evd ty in
+  let (evd, ty1) = Typing.solve_evars (Global.env ()) evd ty1 in
+  let (evd, ty2) = Typing.solve_evars (Global.env ()) evd ty2 in
+  let copreds = CStmt.get_copreds stmt in
+  let ind_names = List.map (fun (_, cop) -> cop.CPred.cop_name) copreds in
   let terminator com =
     let open Proof_global in
     let (opaque, lemma_def) =
@@ -46,7 +49,7 @@ let do_coinduction id cexpr =
   in
   let terminator = Proof_global.make_terminator terminator in
   let kind = Decl_kinds.(Global, Flags.is_universe_polymorphism(), DefinitionBody Definition) in
-  Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty')] terminator;
+  Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty1)] terminator;
   let p = List.length ind_names in
   let tac =
     let rec hlp n =

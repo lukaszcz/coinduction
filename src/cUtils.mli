@@ -37,6 +37,8 @@ val get_inductive_from_id : Id.t -> inductive
 
 val get_ind_name : inductive -> string
 
+val get_ind_nparams : inductive -> int
+
 val close : (Name.t * 'a * 'a -> 'a) -> (Name.t * 'a) list -> 'a -> 'a
 
 val e_new_sort : Evd.evar_map ref -> EConstr.t
@@ -50,6 +52,10 @@ val map_fold_constr_ker : (int -> 'a -> Constr.t -> 'a * Constr.t) -> 'a -> Cons
 val map_constr_ker : (int -> Constr.t -> Constr.t) -> Constr.t -> Constr.t
 
 val is_coinductive : inductive -> bool
+
+val is_and_like : inductive -> bool
+
+val is_exists_like : inductive -> bool
 
 val get_inductive_typeargs : Evd.evar_map -> inductive -> (Name.t * EConstr.t) list
 
