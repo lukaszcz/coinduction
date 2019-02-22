@@ -42,3 +42,28 @@ Lemma lem_plusone_2 : forall s, EqSt (plus s ones) (plusone s).
 Proof.
   coinduction on s.
 Qed.
+
+CoInductive EqSt2 {A : Type} : Stream A -> Stream A -> Prop :=
+| eqst2 : forall x y s1 s2, x = y -> EqSt2 s1 s2 -> EqSt2 (Cons x s1) (Cons y s2).
+
+CoInduction lem_st_to_st2 : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt2 s1 s2.
+Proof.
+  destruct s1 eqn:?, s2 eqn:?.
+  intro H; inversion H.
+  ccrush.
+Qed.
+
+Lemma lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
+Proof.
+  coinduction.
+Qed.
+
+CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
+Proof.
+  yelles 2.
+Qed.
+
+CoInduction lem_two : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt s2 s1 /\ EqSt s1 s2.
+Proof.
+  yelles 2.
+Qed.

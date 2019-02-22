@@ -76,7 +76,7 @@ let translate_coargs ectx evd args =
   List.map begin fun x ->
     match kind evd x with
     | Rel i when List.nth ectx (i - 1) -> AEx i
-    | _ -> ATerm x
+    | _ -> ATerm x (* TODO: check if existential variables do not occur in `x' *)
   end args
 
 let make_stmt evd t =
@@ -124,19 +124,19 @@ let make_stmt evd t =
                            let (evd, p', x) = hlp evd p (true :: ectx) body in
                            (evd, p', SEx (ind, na, cp, x))
                         | _ ->
-                           failwith "unsupported coinductive statement"
+                           failwith "unsupported coinductive statement (1)"
                       end
                    | _ ->
-                      failwith "unsupported coinductive statement"
+                      failwith "unsupported coinductive statement (2)"
                  end
               | _ ->
-                 failwith "unsupported coinductive statement"
+                 failwith "unsupported coinductive statement (3)"
             end
          | _ ->
-            failwith "unsupported coinductive statement"
+            failwith "unsupported coinductive statement (4)"
        end
     | _ ->
-       failwith "unsupported coinductive statement"
+       failwith "unsupported coinductive statement (5)"
   in
   let (evd, _, s) = hlp evd 0 [] t
   in

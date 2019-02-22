@@ -324,9 +324,9 @@ let is_exists_like =
                                | App(r, args) ->
                                   begin
                                     match args with
-                                    | [| a1; a2 |] ->
+                                    | [| a |] ->
                                        begin
-                                         match (kind a1, kind a2) with
+                                         match (kind r, kind a) with
                                          | (Rel 2, Rel 1) ->
                                             begin
                                               match kind t with
