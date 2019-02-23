@@ -75,18 +75,37 @@ let translate_coargs ectx evd args =
   let open EConstr in
   List.map begin fun x ->
     match kind evd x with
-    | Rel i when List.nth ectx (i - 1) -> AEx i
+    | Rel i when List.nth ectx (i - 1) <> "" -> AEx i
     | _ -> ATerm x (* TODO: check if existential variables do not occur in `x' *)
   end args
 
 let make_stmt evd t =
+  let get_ex_arg_indname evd ty =
+    let open Constr in
+    let open EConstr in
+    match kind evd ty with
+    | App (t, args) ->
+       begin
+         match kind evd t with
+         | Ind (ind, _) when is_coinductive ind ->
+            get_ind_name ind
+         | _ ->
+            failwith ("unsupported coinductive statement: " ^
+                        "the type of an existential variable should be coinductive")
+       end
+    | Ind (ind, _) when is_coinductive ind ->
+       get_ind_name ind
+    | _ ->
+       failwith ("unsupported coinductive statement: " ^
+                   "the type of an existential variable should be coinductive")
+  in
   let open Constr in
   let open EConstr in
   (* p - the number of copreds "to the left" *)
   let rec hlp evd p ectx t =
     match kind evd t with
     | Prod (na, ty, c) ->
-       let (evd, a, x) = hlp evd p (false :: ectx) c in
+       let (evd, a, x) = hlp evd p ("" :: ectx) c in
        (evd, a, SProd (na, ty, x))
     | Ind (ind, u) when is_coinductive ind ->
        let (evd, cop) = translate_coinductive evd ind [] in
@@ -96,7 +115,9 @@ let make_stmt evd t =
          match kind evd f with
          | Ind (ind, u) when is_coinductive ind ->
             let coargs = translate_coargs ectx evd (Array.to_list args) in
-            let ex_args = List.map (function ATerm _ -> false | AEx _ -> true) coargs in
+            let ex_args =
+              List.map (function ATerm _ -> "" | AEx i -> List.nth ectx (i - 1)) coargs
+            in
             let (evd, cop) = translate_coinductive evd ind ex_args in
             (evd, p + 1, SPred (p, cop, coargs))
          | Ind (ind, u) when is_and_like ind && Array.length args = get_ind_nparams ind ->
@@ -121,7 +142,8 @@ let make_stmt evd t =
                         let (evd, p, cp) = hlp evd p ectx ty in
                         match cp with
                         | SPred _ ->
-                           let (evd, p', x) = hlp evd p (true :: ectx) body in
+                           let (evd, p', x) = hlp evd p (get_ex_arg_indname evd ty :: ectx) body
+                           in
                            (evd, p', SEx (ind, na, cp, x))
                         | _ ->
                            failwith "unsupported coinductive statement (1)"

@@ -47,9 +47,13 @@ val map_fold_constr : (int -> 'a -> EConstr.t -> 'a * EConstr.t) -> 'a -> Evd.ev
 
 val map_constr : (int -> EConstr.t -> EConstr.t) -> Evd.evar_map -> EConstr.t -> EConstr.t
 
+val fold_constr : (int -> 'a -> EConstr.t -> 'a) -> 'a -> Evd.evar_map -> EConstr.t -> 'a
+
 val map_fold_constr_ker : (int -> 'a -> Constr.t -> 'a * Constr.t) -> 'a -> Constr.t -> 'a * Constr.t
 
 val map_constr_ker : (int -> Constr.t -> Constr.t) -> Constr.t -> Constr.t
+
+val fold_constr_ker : (int -> 'a -> Constr.t -> 'a) -> 'a -> Constr.t -> 'a
 
 val is_coinductive : inductive -> bool
 

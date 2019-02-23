@@ -180,6 +180,8 @@ let map_fold_constr f acc evd t =
 
 let map_constr f evd x = snd (map_fold_constr (fun m () t -> ((), f m t)) () evd x)
 
+let fold_constr f acc evd x = fst (map_fold_constr (fun m acc t -> (f m acc t, t)) acc evd x)
+
 let map_fold_constr_ker f acc t =
   let open Constr in
   let rec hlp m acc t =
@@ -241,6 +243,8 @@ let map_fold_constr_ker f acc t =
   hlp 0 acc t
 
 let map_constr_ker f x = snd (map_fold_constr_ker (fun m () t -> ((), f m t)) () x)
+
+let fold_constr_ker f acc x = fst (map_fold_constr_ker (fun m acc t -> (f m acc t, t)) acc x)
 
 (***************************************************************************************)
 
