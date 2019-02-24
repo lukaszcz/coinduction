@@ -67,15 +67,28 @@ let stmt_to_constr (f : int -> int -> copred -> coarg list -> EConstr.t) =
   in
   hlp 0
 
-let get_copreds =
-  fold_stmt (fun _ lst x -> match x with SPred (p, cop, _) -> (p, cop) :: lst | _ -> lst) []
+let get_copreds s =
+  let open EConstr in
+  let rec hlp s acc =
+    match s with
+    | SProd(na, ty, body) ->
+       hlp body acc
+    | SPred(p, cop, coargs) ->
+       (p, cop) :: acc
+    | SAnd (ind, args) ->
+       List.fold_left (fun acc x -> hlp x acc) [] args
+    | SEx (ind, na, ty, body) ->
+       let acc = hlp ty acc in
+       hlp body acc
+  in
+  List.rev (hlp s [])
 
 let translate_coargs ectx evd args =
   let open Constr in
   let open EConstr in
   List.map begin fun x ->
     match kind evd x with
-    | Rel i when List.nth ectx (i - 1) <> "" -> AEx i
+    | Rel i when fst (List.nth ectx (i - 1)) <> "" -> AEx i
     | _ -> ATerm x (* TODO: check if existential variables do not occur in `x' *)
   end args
 
@@ -105,10 +118,10 @@ let make_stmt evd t =
   let rec hlp evd p ectx t =
     match kind evd t with
     | Prod (na, ty, c) ->
-       let (evd, a, x) = hlp evd p ("" :: ectx) c in
+       let (evd, a, x) = hlp evd p (("", 0) :: ectx) c in
        (evd, a, SProd (na, ty, x))
     | Ind (ind, u) when is_coinductive ind ->
-       let (evd, cop) = translate_coinductive evd ind [] in
+       let (evd, cop) = translate_coinductive evd ind [] [] in
        (evd, p + 1, SPred (p, cop, []))
     | App (f, args) ->
        begin
@@ -116,9 +129,13 @@ let make_stmt evd t =
          | Ind (ind, u) when is_coinductive ind ->
             let coargs = translate_coargs ectx evd (Array.to_list args) in
             let ex_args =
-              List.map (function ATerm _ -> "" | AEx i -> List.nth ectx (i - 1)) coargs
+              List.map (function ATerm _ -> "" | AEx i -> fst (List.nth ectx (i - 1))) coargs
             in
-            let (evd, cop) = translate_coinductive evd ind ex_args in
+            let ex_arg_idxs =
+              List.filter (fun i -> i >= 0)
+                (List.map (function ATerm _ -> -1 | AEx i -> snd (List.nth ectx (i - 1))) coargs)
+            in
+            let (evd, cop) = translate_coinductive evd ind ex_args ex_arg_idxs in
             (evd, p + 1, SPred (p, cop, coargs))
          | Ind (ind, u) when is_and_like ind && Array.length args = get_ind_nparams ind ->
             let (evd, p', rargs') =
@@ -139,12 +156,13 @@ let make_stmt evd t =
                    match kind evd pred with
                    | Lambda(na, _, body) ->
                       begin
-                        let (evd, p, cp) = hlp evd p ectx ty in
+                        let (evd, p1, cp) = hlp evd p ectx ty in
                         match cp with
                         | SPred _ ->
-                           let (evd, p', x) = hlp evd p (get_ex_arg_indname evd ty :: ectx) body
+                           let (evd, p2, x) =
+                             hlp evd p1 ((get_ex_arg_indname evd ty, p) :: ectx) body
                            in
-                           (evd, p', SEx (ind, na, cp, x))
+                           (evd, p2, SEx (ind, na, cp, x))
                         | _ ->
                            failwith "unsupported coinductive statement (1)"
                       end
@@ -195,17 +213,17 @@ let fix_stmt_rels evd m n p s =
   map_stmt
     begin fun k x ->
       match x with
-      | SProd (na, ty, body) -> SProd (na, fix_rels evd n ty, body)
+      | SProd (na, ty, body) -> SProd (na, fix_rels evd k ty, body)
       | SPred (idx, cop, coargs) ->
          SPred (idx, cop,
                 List.map
                   begin function
-                  | ATerm t -> ATerm (fix_rels evd n t)
+                  | ATerm t -> ATerm (fix_rels evd k t)
                   | AEx i when i = k + 1 ->
                      let args =
                        List.rev (List.map mkRel (range (k + 1) (k + n + 1)))
                      in
-                     ATerm (mkApp (mkRel (k + n + m - p), Array.of_list args))
+                     ATerm (mkApp (mkRel (k + n + 1), Array.of_list args))
                   | x -> x
                   end
                   coargs)
@@ -219,16 +237,16 @@ let make_coind_hyps evd m s =
   (* n - the number of non-ex binders up *)
   let rec hlp n s =
     match s with
-    | SProd(na, ty, body) ->
+    | SProd (na, ty, body) ->
        List.map (fun x -> mkProd (na, ty, x)) (hlp (n + 1) body)
-    | SPred(p, cop, coargs) ->
+    | SPred (p, cop, coargs) ->
        [make_ch_red_cop m n p cop coargs]
     | SAnd (ind, args) ->
        List.concat (List.map (hlp n) args)
     | SEx (ind, na, ty, body) ->
        begin
          match ty with
-         | SPred(p, _, _) -> hlp n ty @ hlp n (fix_stmt_rels evd m n p body)
+         | SPred (p, _, _) -> hlp n ty @ hlp n (fix_stmt_rels evd m n p body)
          | _ -> failwith "SEx"
        end
   in
@@ -250,11 +268,10 @@ let make_red k =
 
 let make_green k =
   stmt_to_constr begin fun n p cop coargs ->
-    if List.length cop.cop_ind_names <> 1 then
-      failwith "mutual coinductive types not supported";
     let open EConstr in
-    let args = (* TODO: ex-arg params *)
-      mkRel (n + k - p) ::
+    let args =
+      List.map (fun idx -> mkRel (n + k - idx)) cop.cop_ex_arg_idxs @
+      [ mkRel (n + k - p) ] @
       List.map
         begin function
         | ATerm t -> t
@@ -279,6 +296,70 @@ let make_neutral =
     mkApp (get_constr cop.cop_name, Array.of_list args)
   end
 
+let get_red_type evd p cop =
+  let open Constr in
+  let open EConstr in
+  let rec hlp k lst idxs t =
+    match lst with
+    | head :: tail ->
+       begin
+         match kind evd t with
+         | Prod (na, ty, body) ->
+            if head <> "" then
+              mkProd (na, fix_ex_arg_e_red evd (k + p - List.hd idxs) ty,
+                      hlp (k + 1) tail (List.tl idxs) body)
+            else
+              mkProd (na, ty, hlp (k + 1) tail idxs body)
+         | _ ->
+            failwith "unsupported coinductive type"
+       end
+    | [] ->
+       t
+  in
+  hlp 0 cop.cop_ex_args cop.cop_ex_arg_idxs cop.cop_type
+
+let fix_ex_arg_inj_args evd p cop m k typeargs args2 =
+  let rec hlp n lst ex_args tyargs idxs =
+    match lst, ex_args, tyargs with
+    | h :: t1, arg :: t2, ty :: t3 ->
+       if arg <> "" then
+         let i = k + 1 + p - List.hd idxs
+         in
+         let open Constr in
+         let open EConstr in
+         let h2 =
+           match kind evd ty with
+           | Ind (_) ->
+              mkApp (mkRel i, [| h |])
+           | App (_, args) ->
+              let args' =
+                Array.map
+                  begin fun x ->
+                    map_constr
+                      begin fun l y ->
+                        match kind evd y with
+                        | Rel j when j > l ->
+                           mkRel (j + k - n + 1)
+                        | _ ->
+                           y
+                      end
+                      evd
+                      x
+                  end
+                  args
+              in
+              mkApp (mkRel i, Array.append args' [| h |])
+           | _ ->
+              failwith "unsupported coinductive type (2)"
+         in
+         h2 :: hlp (n + 1) t1 t2 t3 (List.tl idxs)
+       else
+         h :: hlp (n + 1) t1 t2 t3 idxs
+    | _ ->
+       lst
+  in
+  hlp 0 args2 cop.cop_ex_args (List.map snd typeargs) cop.cop_ex_arg_idxs
+
 let translate_statement evd t =
   let open EConstr in
   let fix_ctx = List.map (fun (x, y) -> (Name.mk_name (string_to_id x), y))
@@ -289,7 +370,7 @@ let translate_statement evd t =
   let red_copred_decls =
     List.map
       begin fun (p, cop) ->
-        (get_red_name cop cop.cop_name, cop.cop_type)
+        (get_red_name cop cop.cop_name, get_red_type evd p cop)
       end
       copreds
   in
@@ -299,7 +380,8 @@ let translate_statement evd t =
         let typeargs = get_inductive_typeargs evd (get_inductive cop.cop_name) in
         let k = List.length typeargs in
         let args1 = Array.of_list (List.rev (List.map mkRel (range 1 (k + 1)))) in
-        let args2 = Array.of_list (List.rev (List.map mkRel (range 2 (k + 2)))) in
+        let args2_l = List.rev (List.map mkRel (range 2 (k + 2))) in
+        let args2 = Array.of_list (fix_ex_arg_inj_args evd p cop m k typeargs args2_l) in
         (get_red_name cop cop.cop_name ^ "__inj",
          close mkProd typeargs (mkProd (Name.Anonymous,
                                         mkApp (get_constr cop.cop_name, args1),

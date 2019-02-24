@@ -13,6 +13,7 @@ type copred = {
   cop_name : string; (* original name of the coinductive type *)
   cop_type : EConstr.t; (* original arity *)
   cop_ex_args : string list; (* which arguments are existential variables? "" if not existential, otherwise the name of the coindutive type *)
+  cop_ex_arg_idxs : int list;
   cop_ind_names : string list; (* original names of coinductive types in the same mutual-coinductive block *)
   cop_ind_types : EConstr.t list; (* original arities *)
 }
@@ -260,7 +261,7 @@ let rec drop_prefix evd n tp =
 
 let coind_hash = Hashtbl.create 128
 
-let translate_coinductive evd ind ex_args =
+let translate_coinductive evd ind ex_args ex_arg_idxs =
   let do_transl () =
     let env = Global.env () in
     let mind_body = fst (Inductive.lookup_mind_specif env ind) in
@@ -273,6 +274,8 @@ let translate_coinductive evd ind ex_args =
     and a = List.fold_left (fun a x -> if x <> "" then a + 1 else a) 0 ex_args
     (* a - the number of ex-arg parameters *)
     in
+    if p <> 1 then
+      failwith "mutual coinductive types not supported";
     let ind_names =
       List.map (fun n -> get_ind_name (fst ind, n))
         (range 0 (List.length mind.mind_entry_inds))
@@ -336,10 +339,10 @@ let translate_coinductive evd ind ex_args =
       }
     in
     ignore (Declare.declare_mind mind2);
-    print_endline "akuku";
     let pred = { cop_name = get_ind_name ind;
                  cop_type = Retyping.get_type_of env evd (get_constr (get_ind_name ind));
                  cop_ex_args = ex_args;
+                 cop_ex_arg_idxs = ex_arg_idxs;
                  cop_ind_names = ind_names;
                  cop_ind_types = ind_types }
     in

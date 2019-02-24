@@ -60,7 +60,7 @@ Qed.
 
 CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
 Proof.
-  yelles 2.
+  csolve on s using yelles 2.
 Qed.
 
 CoInduction lem_two : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt s2 s1 /\ EqSt s1 s2.
