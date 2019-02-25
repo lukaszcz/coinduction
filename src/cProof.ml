@@ -5,9 +5,10 @@ open CUtils
 
 let get_canonical_ind_name s = get_ind_name (get_inductive s)
 
-let translate_proof ind_names evd ty prf =
+let translate_proof copreds evd ty prf =
   let open Constr in
   let open EConstr in
+  let ind_names = List.map (fun (_, cop) -> cop.CPred.cop_name) copreds in
   let p = List.length ind_names in
   let g_ind_names = List.map (fun s -> (get_canonical_ind_name (get_basename s ^ "__g"), s)) ind_names
   in
@@ -21,6 +22,8 @@ let translate_proof ind_names evd ty prf =
   let mk_lams =
     close mkLambda
       (List.map (fun _ -> (Name.Anonymous, e_new_sort evm)) (range 1 (p + 1)))
+  in
+  let evd = !evm
   in
   let injs =
     List.map
@@ -39,7 +42,7 @@ let translate_proof ind_names evd ty prf =
       let b =
         map_constr
           begin fun m t ->
-            match kind !evm t with
+            match kind evd t with
             | Rel i when i > m + 1 && i <= m + 1 + p ->
                List.nth injs (i - m - 2)
             | Rel i when i > m + 1 + p && i <= m + 1 + 2 * p ->
@@ -57,19 +60,19 @@ let translate_proof ind_names evd ty prf =
             | _ ->
                t
           end
-          !evm
+          evd
           t
       in
       mkCoFix (0, ([| Name.Anonymous |], [| ty |], [| b |]))
     else
-      match kind !evm t with
+      match kind evd t with
       | Lambda (na, _, b) ->
          hlp (m + 1) b
       | _ ->
          failwith "can't translate the proof: bad prefix"
   in
-  let norm x = Reductionops.nf_betaiotazeta (Global.env ()) !evm x
+  let norm x = Reductionops.nf_betaiotazeta (Global.env ()) evd x
   in
   let r = norm (hlp 0 (norm prf))
   in
-  (!evm, r)
+  (evd, r)

@@ -6,7 +6,7 @@ open Feedback
 
 let () = Mltop.add_known_plugin (fun () ->
   Flags.if_verbose msg_info Pp.(str coind_version_string))
-  "Coinduction"
+  "CoInduction"
 ;;
 
 open Names
@@ -25,15 +25,14 @@ let do_coinduction id cexpr =
   let (evd, ty1) = Typing.solve_evars (Global.env ()) evd ty1 in
   let (evd, ty2) = Typing.solve_evars (Global.env ()) evd ty2 in
   let copreds = CStmt.get_copreds stmt in
-  let ind_names = List.map (fun (_, cop) -> cop.CPred.cop_name) copreds in
   let terminator com =
     let open Proof_global in
     let (opaque, lemma_def) =
       match com with
       | Admitted _ -> (* TODO: should declare as axiom *)
-         CErrors.user_err Pp.(str "Admitted isn't supported in Coinduction.")
+         CErrors.user_err Pp.(str "Admitted isn't supported in CoInduction.")
       | Proved (_, Some _, _) ->
-         CErrors.user_err Pp.(str "Cannot save a proof of Coinduction with an explicit name.")
+         CErrors.user_err Pp.(str "Cannot save a proof of CoInduction with an explicit name.")
       | Proved (opaque, None, obj) ->
          match Proof_global.(obj.entries) with
          | [lemma_def] ->
@@ -44,13 +43,13 @@ let do_coinduction id cexpr =
     let ((prf, uctxs), ()) = Future.force Entries.(lemma_def.const_entry_body) in
     (* I'm not sure if ignoring uctxs won't create a bug somewhere,
        but I don't know how to combine it with evd *)
-    let (evd, prf) = CProof.translate_proof ind_names evd ty (EConstr.of_constr prf) in
+    let (evd, prf) = CProof.translate_proof copreds evd ty (EConstr.of_constr prf) in
     CUtils.declare_definition id evd prf
   in
   let terminator = Proof_global.make_terminator terminator in
   let kind = Decl_kinds.(Global, Flags.is_universe_polymorphism(), DefinitionBody Definition) in
   Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty1)] terminator;
-  let p = List.length ind_names in
+  let p = List.length copreds in
   let tac =
     let rec hlp n =
       if n = 0 then

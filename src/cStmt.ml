@@ -68,7 +68,6 @@ let stmt_to_constr (f : int -> int -> copred -> coarg list -> EConstr.t) =
   hlp 0
 
 let get_copreds s =
-  let open EConstr in
   let rec hlp s acc =
     match s with
     | SProd(na, ty, body) ->

@@ -19,21 +19,11 @@ val string_to_id : string -> Id.t
 
 val intern_constr : Environ.env -> Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * EConstr.t
 
-val to_constr : Globnames.global_reference -> EConstr.t
-
-val get_global : string -> Globnames.global_reference
-
-val get_global_from_id : Id.t -> Globnames.global_reference
-
 val exists_global : string -> bool
 
 val get_constr : string -> EConstr.t
 
-val get_constr_from_id : Id.t -> EConstr.t
-
 val get_inductive : string -> inductive
-
-val get_inductive_from_id : Id.t -> inductive
 
 val get_ind_name : inductive -> string
 

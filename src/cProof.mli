@@ -1,8 +1,8 @@
 (* Proof translation *)
 
-open Names
+open CPred
 
 val translate_proof :
-  string list (* names of ind types  *) -> Evd.evar_map ->
+  (int * copred) list (* copreds  *) -> Evd.evar_map ->
   EConstr.t (* type *) -> EConstr.t (* proof *) ->
   Evd.evar_map * EConstr.t
