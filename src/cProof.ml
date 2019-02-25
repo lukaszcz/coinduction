@@ -2,28 +2,27 @@
 
 open Names
 open CUtils
+open CPred
 
 let get_canonical_ind_name s = get_ind_name (get_inductive s)
 
 let translate_proof copreds evd ty prf =
   let open Constr in
   let open EConstr in
-  let ind_names = List.map (fun (_, cop) -> cop.CPred.cop_name) copreds in
+  let ind_names = List.map (fun (_, cop) -> cop.cop_name) copreds in
   let p = List.length ind_names in
-  let g_ind_names = List.map (fun s -> (get_canonical_ind_name (get_basename s ^ "__g"), s)) ind_names
+  let g_ind_assoc = List.map (fun cp -> (get_canonical_ind_name (get_green_name (snd cp) (snd cp).cop_name), cp)) copreds
   in
-  let is_g_ind ind = List.mem_assoc (get_ind_name ind) g_ind_names in
-  let fix_g_ind ind =
+  let is_g_ind ind = List.mem_assoc (get_ind_name ind) g_ind_assoc in
+  let fix_g_ind ind args f =
     let s = get_ind_name ind in
-    get_inductive (List.assoc s g_ind_names)
-  in
-  let the_True = get_constr "True" in
-  let evm = ref evd in
-  let mk_lams =
-    close mkLambda
-      (List.map (fun _ -> (Name.Anonymous, e_new_sort evm)) (range 1 (p + 1)))
-  in
-  let evd = !evm
+    let (_, cop) = List.assoc s g_ind_assoc in
+    let a = List.length cop.cop_ex_arg_idxs + 1 in
+    let args2 = Array.sub args a (Array.length args - a) in
+    if Array.length args2 = 0 then
+      f (get_inductive cop.cop_name)
+    else
+      mkApp (f (get_inductive cop.cop_name), args2)
   in
   let injs =
     List.map
@@ -44,19 +43,21 @@ let translate_proof copreds evd ty prf =
           begin fun m t ->
             match kind evd t with
             | Rel i when i > m + 1 && i <= m + 1 + p ->
+               (* Rel points at an injection *)
                List.nth injs (i - m - 2)
             | Rel i when i > m + 1 + p && i <= m + 1 + 2 * p ->
-               the_True
-            | Ind (ind, u) ->
-               if is_g_ind ind then
-                 mk_lams (mkInd (fix_g_ind ind))
-               else
-                 t
-            | Construct ((ind, i), u) ->
-               if is_g_ind ind then
-                 mk_lams (mkConstruct (fix_g_ind ind, i))
-               else
-                 t
+               (* Rel point at a red parameter *)
+               mkInd (get_inductive (List.nth ind_names (m + 1 + 2 * p - i)))
+            | App (c, args) ->
+               begin
+                 match kind evd c with
+                 | Ind (ind, u) when is_g_ind ind ->
+                    fix_g_ind ind args mkInd
+                 | Construct ((ind, i), u) when is_g_ind ind ->
+                    fix_g_ind ind args (fun ind -> mkConstruct (ind, i))
+                 | _ ->
+                    t
+               end
             | _ ->
                t
           end
@@ -73,6 +74,8 @@ let translate_proof copreds evd ty prf =
   in
   let norm x = Reductionops.nf_betaiotazeta (Global.env ()) evd x
   in
-  let r = norm (hlp 0 (norm prf))
+  let prf' = norm prf
+  in
+  let r = norm (hlp 0 prf')
   in
   (evd, r)

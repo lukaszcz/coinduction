@@ -53,6 +53,11 @@ Proof.
   ccrush.
 Qed.
 
+CoInduction lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
+Proof.
+  yelles 2.
+Qed.
+
 Lemma lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
 Proof.
   coinduction.
