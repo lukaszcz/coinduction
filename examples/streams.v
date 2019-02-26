@@ -35,7 +35,7 @@ Print lem_plusone.
 
 CoInduction lem_plusone_1 : forall s, EqSt (plus s ones) (plusone s).
 Proof.
-  yelles 2.
+  ccrush.
 Qed.
 
 Lemma lem_plusone_2 : forall s, EqSt (plus s ones) (plusone s).
@@ -49,16 +49,19 @@ CoInductive EqSt2 {A : Type} : Stream A -> Stream A -> Prop :=
 CoInduction lem_st_to_st2 : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt2 s1 s2.
 Proof.
   destruct s1 eqn:?, s2 eqn:?.
-  intro H; inversion H.
   ccrush.
 Qed.
 
+Print lem_st_to_st2.
+
 CoInduction lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
 Proof.
-  yelles 2.
+  ccrush.
 Qed.
 
-Lemma lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
+Print lem_st2_to_st.
+
+Lemma lem_st2_to_st' : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
 Proof.
   coinduction.
 Qed.

@@ -46,7 +46,7 @@ let translate_proof copreds evd ty prf =
                (* Rel points at an injection *)
                List.nth injs (i - m - 2)
             | Rel i when i > m + 1 + p && i <= m + 1 + 2 * p ->
-               (* Rel point at a red parameter *)
+               (* Rel points at a red parameter *)
                mkInd (get_inductive (List.nth ind_names (m + 1 + 2 * p - i)))
             | App (c, args) ->
                begin
@@ -72,10 +72,10 @@ let translate_proof copreds evd ty prf =
       | _ ->
          failwith "can't translate the proof: bad prefix"
   in
-  let norm x = Reductionops.nf_betaiotazeta (Global.env ()) evd x
+  let prf' = CNorm.norm evd prf
   in
-  let prf' = norm prf
+  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf'));
+  let r = CNorm.norm_beta evd (hlp 0 prf')
   in
-  let r = norm (hlp 0 prf')
-  in
+  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd r));
   (evd, r)

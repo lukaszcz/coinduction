@@ -997,7 +997,7 @@ with doyelles defs n :=
                 | [ x : ?T |- _ ] =>
                   notProp T; ydestruct x; unfolding defs; doyelles defs k
                 | [ H : ?T |- _ ] =>
-                  isPropAtom T; yinversion H; unfolding defs; doyelles defs k
+                  isPropAtom T; destruct H; try subst; unfolding defs; doyelles defs k
                 | [ |- ?A = ?B ] =>
                   progress (try ydestruct A; try ydestruct B);
                   unfolding defs;
@@ -1027,9 +1027,9 @@ Ltac yelles1 defs n :=
   repeat (yintros; repeat ysplit);
   doyelles defs n.
 
-Ltac yellesd defs n := cbn in *; unshelve yelles1 defs n; dsolve.
+Ltac yellesd defs n := cbn in *; intros; unshelve yelles1 defs n; dsolve.
 
-Ltac yelles n := cbn in *; unshelve yelles1 CEmpty n; dsolve.
+Ltac yelles n := cbn in *; intros; unshelve yelles1 CEmpty n; dsolve.
 
 Ltac yforward H :=
   einst H;
@@ -1056,7 +1056,7 @@ Ltac forward_reasoning n :=
 Ltac crewrite := cbn in *; autorewrite with rhints chints list in *.
 
 Ltac ccrush :=
-  ctrivial; eauto; sintuition;
+  intros; ctrivial; eauto; try yelles 2; sintuition;
   crewrite; bnat_reflect; simp_hyps;
   forward_reasoning 3; simp_hyps; ctrivial;
   crewrite; simp_hyps; ctrivial;
@@ -1070,10 +1070,10 @@ Ltac ccrush :=
       end;
   try match goal with
       | [ H : ?T |- _ ] =>
-        isPropAtom T; yinversion H; cbn in *; try subst; simp_hyps; eauto with chints; yelles 1
+        isPropAtom T; destruct H; cbn in *; try subst; simp_hyps; eauto with chints; yelles 1
       end.
-Ltac ceasy := ctrivial; eauto; yelles 1.
-Ltac cseasy := ctrivial; eauto; sauto; yelles 1.
+Ltac ceasy := intros; ctrivial; eauto; yelles 1.
+Ltac cseasy := intros; ctrivial; eauto; sauto; yelles 1.
 Ltac cyelles n := ccrush; yelles n.
 
 Ltac csolve0 H tac :=
@@ -1121,12 +1121,12 @@ Ltac coind_on_solve C tac :=
 
 Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) := do n intro; coind_on_solve H ltac:(ctrivial).
 Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve H tac.
-Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(ctrivial).
+Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve 0 tac.
 
 Tactic Notation "csolve" hyp(H) "on" ident(n) := intros until n; revert n; coind_on_solve H ltac:(ctrivial).
 Tactic Notation "csolve" hyp(H) "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve H tac.
-Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(ctrivial).
+Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve 0 tac.
 
 Tactic Notation "coinduction" ident(H) := autounfold with chints; cofix H; csolve H using ctrivial.
