@@ -21,9 +21,8 @@ let do_coinduction id cexpr =
   let env = Global.env () in
   let evd = Evd.from_env env in
   let (evd, ty) = intern_constr env evd cexpr in
-  let (evd, stmt, ty1, ty2) = CStmt.translate_statement evd ty in
+  let (evd, stmt, cohyps, ty1) = CStmt.translate_statement evd ty in
   let (evd, ty1) = Typing.solve_evars (Global.env ()) evd ty1 in
-  let (evd, ty2) = Typing.solve_evars (Global.env ()) evd ty2 in
   let copreds = CStmt.get_copreds stmt in
   let terminator com =
     let open Proof_global in
@@ -43,7 +42,7 @@ let do_coinduction id cexpr =
     let ((prf, uctxs), ()) = Future.force Entries.(lemma_def.const_entry_body) in
     (* I'm not sure if ignoring uctxs won't create a bug somewhere,
        but I don't know how to combine it with evd *)
-    let (evd, prf) = CProof.translate_proof copreds evd ty (EConstr.of_constr prf) in
+    let (evd, prf) = CProof.translate_proof stmt copreds cohyps evd ty (EConstr.of_constr prf) in
     CUtils.declare_definition id evd prf
   in
   let terminator = Proof_global.make_terminator terminator in

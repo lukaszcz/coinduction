@@ -1,8 +1,9 @@
 (* Proof translation *)
 
 open CPred
+open CStmt
 
 val translate_proof :
-  (int * copred) list (* copreds  *) -> Evd.evar_map ->
-  EConstr.t (* type *) -> EConstr.t (* proof *) ->
+  stmt -> (int * copred) list (* copreds  *) -> EConstr.t list (* cohyps *) ->
+  Evd.evar_map -> EConstr.t (* type *) -> EConstr.t (* proof *) ->
   Evd.evar_map * EConstr.t

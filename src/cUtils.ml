@@ -16,6 +16,11 @@ let range m n =
     if i >= j then acc else go (i :: acc) (i + 1) j
   in List.rev (go [] m n)
 
+let rec repl n x =
+  if n = 0 then
+    []
+  else
+    x :: repl (n - 1) x
 
 let rec take n lst =
   if n > 0 then

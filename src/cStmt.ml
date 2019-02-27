@@ -393,13 +393,6 @@ let translate_statement evd t =
       (close mkProd (fix_ctx injections)
          (mkProd (Name.Anonymous, make_red (m + m) stmt, make_green (m + m + 1) stmt)))
   in
-  let cohyps =
-    List.map2 (fun x y -> ("CH" ^ string_of_int y, x)) (make_coind_hyps evd m stmt) (range 1 (m + 1))
+  let cohyps = make_coind_hyps evd m stmt
   in
-  let result2 =
-    close mkProd (fix_ctx red_copred_decls)
-      (close mkProd (fix_ctx injections)
-         (close mkProd (fix_ctx cohyps)
-            (make_green (m + m + m) stmt)))
-  in
-  (evd, stmt, result, result2)
+  (evd, stmt, cohyps, result)

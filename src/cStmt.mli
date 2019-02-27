@@ -26,6 +26,4 @@ val get_copreds : stmt -> (int * copred) list
 
 val translate_statement :
   Evd.evar_map -> EConstr.t ->
-  Evd.evar_map * stmt *
-    EConstr.t (* translated statement (one cohyp) *) *
-    EConstr.t (* translated statement (multiple cohyps) *)
+  Evd.evar_map * stmt * EConstr.t list (* cohyps list *) * EConstr.t (* translated statement *)

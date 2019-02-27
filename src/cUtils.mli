@@ -5,6 +5,8 @@ open Names
 (* numbers from m up to but not including n *)
 val range : int (* m *) -> int (* n *) -> int list
 
+val repl : int -> 'a -> 'a list
+
 val take : int -> 'a list -> 'a list
 
 val drop : int -> 'a list -> 'a list
