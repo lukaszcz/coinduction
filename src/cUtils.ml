@@ -104,13 +104,6 @@ let rec close f ctx t =
 
 (***************************************************************************************)
 
-let e_new_sort evm =
-  let evd, s = Evd.new_sort_variable Evd.univ_rigid !evm in
-  evm := evd;
-  EConstr.mkSort s
-
-(***************************************************************************************)
-
 let map_fold_constr f acc evd t =
   let open Constr in
   let open EConstr in
@@ -277,7 +270,7 @@ let is_and_like =
       | Prod(na, ty, b) ->
          begin
            match kind ty with
-           | Rel k when k <= n + p && k > n -> hlp (n + 1) b
+           | Rel k when k = p -> hlp (n + 1) b
            | _ -> false
          end
       | App (r, args) ->

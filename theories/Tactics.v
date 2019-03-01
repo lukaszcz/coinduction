@@ -1056,7 +1056,7 @@ Ltac forward_reasoning n :=
 Ltac crewrite := cbn in *; autorewrite with rhints chints list in *.
 
 Ltac ccrush :=
-  intros; ctrivial; eauto; try yelles 2; sintuition;
+  intros; try yelles 2; ctrivial; eauto; sintuition;
   crewrite; bnat_reflect; simp_hyps;
   forward_reasoning 3; simp_hyps; ctrivial;
   crewrite; simp_hyps; ctrivial;
