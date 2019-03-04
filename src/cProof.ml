@@ -39,7 +39,7 @@ let make_coproof evd s funs =
         | ATerm t ->
            shift_binders evd k t
         | AEx i ->
-           let (p, l) = List.nth ctx (List.length ctx - i) in
+           let (p, l) = List.nth ctx (i - 1) in
            if p = -1 then
              mkRel i
            else
@@ -85,7 +85,6 @@ let make_coproof evd s funs =
             let predty = mkLambda (na, ty2, mk_type ((-1,0) :: ctx) (m - n) (n + 1) body) in
             let arg = mk_prf ctx n m ty in
             let body2 = mk_prf ((p, n) :: ctx) n (m + 1) body in
-            Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd body2));
             mkApp (mkConstruct (ind, 1), [| ty2; predty; arg; body2 |])
          | _ ->
             failwith "make_coproof"
@@ -268,7 +267,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
          pr)
   in
   (* k - the number of lambdas in case return type *)
-  (* k1 - the absolute (top-down) index of the variable matched on *)
+  (* k1 - the absolute (top-down) index of the variable matched on (-1 if none) *)
   (* k2 - the absolute (top-down) index of the last lambda in case return type *)
   let rec extract_types fa do_peek k k1 k2 ctx n s t =
     let id x = x in
@@ -300,8 +299,6 @@ let translate_proof stmt copreds cohyps evd ty prf =
                 mkApp (mkRel (n + 3 * p - i),
                        Array.of_list (List.rev (List.map (fun j -> if j = k1 then mkRel (n - k2) else mkRel (n - j)) ctx)))
               in
-              print_endline "akuku!";
-              Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd t2));
               match kind evd t2 with
               | Lambda (na2, ty2, body2) ->
                  let peek_needed = do_peek && List.mem k1 ctx in
@@ -341,8 +338,6 @@ let translate_proof stmt copreds cohyps evd ty prf =
                                 Array.of_list (List.rev (List.map (fun j -> mkRel (n - k - j)) ctx)))
                        in
                        let tyargs0 = List.map (shift_binders evd k) tyargs1 in
-                       print_endline "y";
-                       Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd y));
                        let ty0 = shift_binders evd k ty2 in
                        let ret =
                          shift_binders evd (k - 1)

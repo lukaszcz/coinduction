@@ -31,7 +31,7 @@ let map_fold_stmt (f : int -> 'a -> stmt -> 'a * stmt) acc stmt =
          List.fold_right
            begin fun x (acc, args2) ->
              let (acc2, x2) = hlp n acc x in
-             (acc2, x :: args2)
+             (acc2, x2 :: args2)
            end
            args
            (acc, [])
@@ -75,10 +75,9 @@ let get_copreds s =
     | SPred(p, cop, coargs) ->
        (p, cop) :: acc
     | SAnd (ind, args) ->
-       List.fold_left (fun acc x -> hlp x acc) [] args
+       List.fold_left (fun acc x -> hlp x acc) acc args
     | SEx (ind, na, ty, body) ->
-       let acc = hlp ty acc in
-       hlp body acc
+       hlp body (hlp ty acc)
   in
   List.rev (hlp s [])
 
@@ -207,6 +206,8 @@ let fix_rels evd n =
     end
     evd
 
+(* m - the total number of coinductive predicates (= the number of red parameters) *)
+(* n - the number of non-ex binders up *)
 let fix_stmt_rels evd m n p s =
   let open EConstr in
   map_stmt
@@ -222,7 +223,7 @@ let fix_stmt_rels evd m n p s =
                      let args =
                        List.rev (List.map mkRel (range (k + 1) (k + n + 1)))
                      in
-                     ATerm (mkApp (mkRel (k + n + 1), Array.of_list args))
+                     ATerm (mkApp (mkRel (k + n + idx - p), Array.of_list args))
                   | x -> x
                   end
                   coargs)
