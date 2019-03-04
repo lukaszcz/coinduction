@@ -99,30 +99,21 @@ Check (let H := (cofix H (A : Type) (s : Stream A) : Stream A := match s with
 
 Print peek_eq.
 
-Check (let cofix H (A : Type) (s : Stream A) : Stream A := match s with
-                                                     | Cons a s0 => Cons a (H A s0)
-                                                     end in
- let
-   cofix H0 (A : Type) (s : Stream A) : EqSt2 s (H A s) :=
-     match s as s0 return (s0 = s -> EqSt2 s0 (H A s)) with
-     | Cons a s0 =>
-       (fun H1 =>
-          eq_ind (Cons a s0)
-                 (fun r => EqSt2 (Cons a s0) (H A r))
-                 (eq_ind (peek (H A (Cons a s0)))
-                          (fun r => EqSt2 (Cons a s0) r)
-                          (eqst2 a a s0 (H A s0) eq_refl (H0 A s0))
-                          (H A (Cons a s0))
-                          (peek_eq (H A (Cons a s0))))
-                 s
-                 H1)
-     end eq_refl in
- fun (A : Type) (s : Stream A) => ex_intro (fun s' : Stream A => EqSt2 s s') (H A s) (H0 A s)).
+Unset Implicit Arguments.
 
 CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
 Proof.
   csolve on s.
 Qed.
+
+Print lem_ex.
+
+CoInduction lem_ex_2 : forall (A : Type) (s : Stream A), exists s', EqSt2 s' s.
+Proof.
+  csolve on s.
+Qed.
+
+Print lem_ex_2.
 
 CoInduction lem_ex_two : forall (A : Type) (s : Stream A), exists s', EqSt2 s s' /\ EqSt2 s' s.
 Proof.

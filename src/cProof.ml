@@ -168,8 +168,17 @@ let skip_cases extract evd t cont =
           let p = fst (List.hd lst) in
           let lst = List.map snd lst in
           let branches2 = Array.of_list (List.map2 make_lambdas lambdas1 lst) in
-          let ret2 = make_lambdas lambdas2 (List.hd lst2) in
-          hlp (List.map (List.tl) lst1) (List.tl lst2) (n - 1) ((p, f branches2 ret2) :: acc)
+          let case2 =
+            List.hd lst2
+              begin fun h ->
+                let ret2 = make_lambdas lambdas2 h in
+                if k > 0 then
+                  f branches2 ret2
+                else
+                  f branches2 ret2
+              end
+          in
+          hlp (List.map (List.tl) lst1) (List.tl lst2) (n - 1) ((p, case2) :: acc)
       in
       hlp lst1 lst2 n []
     in
@@ -207,6 +216,11 @@ let translate_proof stmt copreds cohyps evd ty prf =
     else
       mkApp (f (get_inductive cop.cop_name), args2)
   in
+  let fix_g_args ind args =
+    let s = get_ind_name ind in
+    let (_, cop) = List.assoc s g_ind_assoc in
+    drop (List.length cop.cop_ex_arg_idxs + 1) args
+  in
   let injs =
     List.map
       begin fun name ->
@@ -221,20 +235,20 @@ let translate_proof stmt copreds cohyps evd ty prf =
   in
   (* k1 - the number of variables between the proof and the injections
      (coinductive hypotheses) which the term assumes *)
-  (* k1 - the number of coinductive hypotheses added *)
+  (* k2 - the number of coinductive hypotheses added *)
   let fix_proof k1 k2 evd pr =
     CNorm.norm_beta evd
       (map_constr
          begin fun m t ->
            match kind evd t with
            | Rel i when i > m + k1 && i <= m + k1 + p ->
-           (* Rel points at an injection *)
+              (* Rel points at an injection *)
               List.nth injs (i - m - k1 - 1)
            | Rel i when i > m + k1 + p && i <= m + k1 + 2 * p ->
-           (* Rel points at a red parameter *)
+              (* Rel points at a red parameter *)
               mkInd (get_inductive (List.nth ind_names (m + k1 + 2 * p - i)))
            | Rel i when i > m + k1 + 2 * p && i <= m + k1 + 3 * p ->
-           (* Rel points at a (unfixed) coinductive hypothesis *)
+              (* Rel points at a (unfixed) coinductive hypothesis *)
               let q = m + k1 + 3 * p - i in
               mkRel (m + k2 - q)
            | App (c, args) ->
@@ -253,23 +267,27 @@ let translate_proof stmt copreds cohyps evd ty prf =
          evd
          pr)
   in
-  let rec extract_types k1 k2 ctx n s t =
+  (* k - the number of lambdas in case return type *)
+  (* k1 - the absolute (top-down) index of the variable matched on *)
+  (* k2 - the absolute (top-down) index of the last lambda in case return type *)
+  let rec extract_types fa do_peek k k1 k2 ctx n s t =
+    let id x = x in
     match s with
     | SProd (na, ty, body) ->
        begin
          match kind evd t with
          | Prod (na1, ty1, body1) ->
-            List.map (fun x -> mkProd (na1, ty1, x)) (extract_types k1 k2 (n :: ctx) (n + 1) body body1)
+            extract_types (fun x -> fa (mkProd (na1, ty1, x))) do_peek k k1 k2 (n :: ctx) (n + 1) body body1
          | _ ->
             failwith "extract_types: unsupported coinductive type (1)"
        end
     | SPred (p, cop, coargs) ->
-       [t]
+       [(fun f -> f (fa t))]
     | SAnd (ind, args) ->
        begin
          match kind evd t with
          | App (c, args2) when Array.length args2 = List.length args ->
-            List.concat (List.map2 (extract_types k1 k2 ctx n) args (Array.to_list args2))
+            List.concat (List.map2 (extract_types fa do_peek k k1 k2 ctx n) args (Array.to_list args2))
          | _ ->
             failwith "extract_types: unsupported coinductive type (2)"
        end
@@ -282,10 +300,66 @@ let translate_proof stmt copreds cohyps evd ty prf =
                 mkApp (mkRel (n + 3 * p - i),
                        Array.of_list (List.rev (List.map (fun j -> if j = k1 then mkRel (n - k2) else mkRel (n - j)) ctx)))
               in
+              print_endline "akuku!";
+              Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd t2));
               match kind evd t2 with
               | Lambda (na2, ty2, body2) ->
+                 let peek_needed = do_peek && List.mem k1 ctx in
+                 let (tyind, tyargs) =
+                   match kind evd ty2 with
+                   | Ind _ -> (ty2, [])
+                   | App (c, args) -> (c, Array.to_list args)
+                   | _ -> failwith "extract_types: expected a (co)inductive type"
+                 in
+                 let ind =
+                   match kind evd tyind with
+                   | Ind (ind, _) -> ind
+                   | _ -> failwith "extract_types: expected a (co)inductive type"
+                 in
+                 let tyargs1 = fix_g_args ind tyargs
+                 in
+                 let pr =
+                   if peek_needed then
+                     mkApp (get_constr "peek", Array.of_list (tyargs1 @ [pr]))
+                   else
+                     pr
+                 in
                  let t3 = CNorm.norm_beta evd (mkApp (t2, [| pr |])) in
-                 t1 :: extract_types k1 k2 ctx n body t3
+                 let tps =
+                   List.combine
+                     (extract_types fa do_peek k k1 k2 ctx n body t3)
+                     (extract_types fa false k k1 k2 ctx (n + 1) body body2)
+                 in
+                 (fun f -> f t1) ::
+                   if peek_needed then
+                     List.map begin fun (fx, fy) f ->
+                       assert (k > 0);
+                       let x = fx f in
+                       let y = fy id in
+                       let pr0 =
+                         mkApp (mkRel (n - k + 3 * p - i),
+                                Array.of_list (List.rev (List.map (fun j -> mkRel (n - k - j)) ctx)))
+                       in
+                       let tyargs0 = List.map (shift_binders evd k) tyargs1 in
+                       print_endline "y";
+                       Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd y));
+                       let ty0 = shift_binders evd k ty2 in
+                       let ret =
+                         shift_binders evd (k - 1)
+                           (CNorm.norm_beta evd
+                              (mkApp (mkLambda (na2, ty2, mkLambda (na2, ty2, y)), [| mkRel (n - k1 - 1) |])))
+                       in
+                       mkApp (get_constr "eq_ind",
+                              [| ty0;
+                                 mkApp (get_constr "peek", Array.of_list (tyargs0 @ [pr0]));
+                                 ret;
+                                 x;
+                                 pr0;
+                                 mkApp (get_constr "peek_eq", Array.of_list (tyargs0 @ [pr0]));
+                              |])
+                     end tps
+                   else
+                     (List.map fst tps)
               | _ ->
                  failwith "extract_types: unsupported coinductive type (3)"
             end
@@ -295,7 +369,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
   in
   let rec extract_proofs ctx n s t =
     let skip =
-      skip_cases (fun k1 k -> extract_types (n - k1) (n + k - 1) ctx (n + k) s) evd t
+      skip_cases (fun k1 k -> extract_types (fun x -> x) true k (n - k1) (n + k - 1) ctx (n + k) s) evd t
     in
     match s with
     | SProd (na, ty, body) ->
