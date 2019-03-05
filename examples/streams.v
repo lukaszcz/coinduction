@@ -97,6 +97,11 @@ Check (let H := (cofix H (A : Type) (s : Stream A) : Stream A := match s with
        (peek_eq (H A s))
       )).
 
+fun (A : Type) (s : Stream A) => match s as s0 return (peek s0 = s0) with
+                                 | Cons a s0 => eq_refl
+                                 end
+     : forall (A : Type) (s : Stream A), peek s = s
+
 Print peek_eq.
 
 CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
@@ -126,21 +131,3 @@ Proof.
 Qed.
 
 Print lem_ex_ex_two.
-
-
-Check (let cofix H (A : Type) (s : Stream A) : Stream A := match s with
-                                                     | Cons a s0 => Cons a (H A s0)
-                                                     end in
- let
-   cofix H0 (A : Type) (s : Stream A) : EqSt2 s (H A s) :=
-     eq_ind (peek (H A s)) (fun s' : Stream A => EqSt2 s s')
-       match s as s0 return (EqSt2 s0 (peek (H A s0))) with
-       | Cons a s0 => eqst2 a a s0 (H A s0) eq_refl (H0 A s0)
-       end (H A s) (peek_eq (H A s)) in
- let
-   cofix H1 (A : Type) (s : Stream A) : EqSt2 (H A s) s :=
-     eq_ind (peek (H A s)) (fun s' : Stream A => EqSt2 s' s)
-       match s as s0 return (EqSt2 (peek (H A s0)) s0) with
-       | Cons a s0 => eqst2 a a (H A s0) s0 eq_refl (H1 A s0)
-       end (H A s) (peek_eq (H A s)) in
- fun (A : Type) (s : Stream A) => ex_intro (fun s' : Stream A => EqSt2 s s' /\ EqSt2 s' s) (H A s) (conj (H0 A s) (H1 A s))).

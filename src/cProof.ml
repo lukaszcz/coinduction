@@ -145,6 +145,19 @@ let rec make_lambdas pref t =
   | (na, ty) :: tl -> mkLambda (na, ty, make_lambdas tl t)
   | [] -> t
 
+let rel_occurs evd t i =
+  let open Constr in
+  let open EConstr in
+  fold_constr
+    begin fun n b x ->
+      match kind evd x with
+      | Rel j -> if j - n = i then true else b
+      | _ -> b
+    end
+    false
+    evd
+    t
+
 let skip_cases extract evd t cont =
   let open Constr in
   let open EConstr in
@@ -155,8 +168,9 @@ let skip_cases extract evd t cont =
       let lambdas2 = take_all_lambdas evd ret in
       let k = List.length lambdas2 in
       let k1 = match kind evd value with Rel i -> i | _ -> -1 in
+      let ret0 = drop_all_lambdas evd ret in
       let k1 = if k > 0 then k1 else -1 in
-      let lst2 = extract k1 k (drop_all_lambdas evd ret) in
+      let lst2 = extract k1 k ret0 in
       let n = List.length (List.hd lst1) in
       assert (List.length lst2 = n);
       let rec hlp lst1 lst2 n acc =
@@ -333,25 +347,28 @@ let translate_proof stmt copreds cohyps evd ty prf =
                        assert (k > 0);
                        let x = fx f in
                        let y = fy id in
-                       let pr0 =
-                         mkApp (mkRel (n - k + 3 * p - i),
-                                Array.of_list (List.rev (List.map (fun j -> mkRel (n - k - j)) ctx)))
-                       in
-                       let tyargs0 = List.map (shift_binders evd k) tyargs1 in
-                       let ty0 = shift_binders evd k ty2 in
-                       let ret =
-                         shift_binders evd (k - 1)
-                           (CNorm.norm_beta evd
-                              (mkApp (mkLambda (na2, ty2, mkLambda (na2, ty2, y)), [| mkRel (n - k1 - 1) |])))
-                       in
-                       mkApp (get_constr "eq_ind",
-                              [| ty0;
-                                 mkApp (get_constr "peek", Array.of_list (tyargs0 @ [pr0]));
-                                 ret;
-                                 x;
-                                 pr0;
-                                 mkApp (get_constr "peek_eq", Array.of_list (tyargs0 @ [pr0]));
-                              |])
+                       if rel_occurs evd y 1 then
+                         let pr0 =
+                           mkApp (mkRel (n - k + 3 * p - i),
+                                  Array.of_list (List.rev (List.map (fun j -> mkRel (n - k - j)) ctx)))
+                         in
+                         let tyargs0 = List.map (shift_binders evd k) tyargs1 in
+                         let ty0 = shift_binders evd k ty2 in
+                         let ret =
+                           shift_binders evd (k - 1)
+                             (CNorm.norm_beta evd
+                                (mkApp (mkLambda (na2, ty2, mkLambda (na2, ty2, y)), [| mkRel (n - k1 - 1) |])))
+                         in
+                         mkApp (get_constr "eq_ind",
+                                [| ty0;
+                                   mkApp (get_constr "peek", Array.of_list (tyargs0 @ [pr0]));
+                                   ret;
+                                   x;
+                                   pr0;
+                                   mkApp (get_constr "peek_eq", Array.of_list (tyargs0 @ [pr0]));
+                                |])
+                       else
+                         x
                      end tps
                    else
                      (List.map fst tps)
@@ -364,7 +381,11 @@ let translate_proof stmt copreds cohyps evd ty prf =
   in
   let rec extract_proofs ctx n s t =
     let skip =
-      skip_cases (fun k1 k -> extract_types (fun x -> x) true k (n - k1) (n + k - 1) ctx (n + k) s) evd t
+      skip_cases
+        begin fun k1 k ->
+          extract_types (fun x -> x) true k (n - k1) (n + k - 1) ctx (n + k) s
+        end
+        evd t
     in
     match s with
     | SProd (na, ty, body) ->

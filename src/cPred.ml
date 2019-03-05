@@ -352,7 +352,7 @@ let translate_coinductive evd ind ex_args ex_arg_idxs =
   if Hashtbl.mem coind_hash (ind, ex_args) then
     begin
       if exists_global (get_name (get_ind_name ind) ex_args "__g") then
-        (evd, Hashtbl.find coind_hash (ind, ex_args))
+        (evd, { (Hashtbl.find coind_hash (ind, ex_args)) with cop_ex_arg_idxs = ex_arg_idxs })
       else
         begin
           Hashtbl.remove coind_hash (ind, ex_args);

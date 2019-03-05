@@ -306,8 +306,10 @@ let get_red_type evd p cop =
          match kind evd t with
          | Prod (na, ty, body) ->
             if head <> "" then
-              mkProd (na, fix_ex_arg_e_red evd (k + p - List.hd idxs) ty,
-                      hlp (k + 1) tail (List.tl idxs) body)
+              begin
+                mkProd (na, fix_ex_arg_e_red evd (k + p - List.hd idxs) ty,
+                        hlp (k + 1) tail (List.tl idxs) body)
+              end
             else
               mkProd (na, ty, hlp (k + 1) tail idxs body)
          | _ ->
