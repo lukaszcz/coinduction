@@ -22,7 +22,6 @@ let do_coinduction id cexpr =
   let evd = Evd.from_env env in
   let (evd, ty) = intern_constr env evd cexpr in
   let (evd, stmt, cohyps, ty1) = CStmt.translate_statement evd ty in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd ty1));
   let (evd, ty1) = Typing.solve_evars (Global.env ()) evd ty1 in
   let copreds = CStmt.get_copreds stmt in
   let terminator com =

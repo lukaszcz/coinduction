@@ -104,60 +104,6 @@ let make_full_coproof evd s prfs =
   in
   hlp prfs
 
-let rec drop_lambdas evd n t =
-  let open Constr in
-  let open EConstr in
-  if n = 0 then
-    t
-  else
-    match kind evd t with
-    | Lambda (na, ty, body) -> drop_lambdas evd (n - 1) body
-    | _ -> failwith "drop_lambdas"
-
-let rec take_lambdas evd n t =
-  let open Constr in
-  let open EConstr in
-  if n = 0 then
-    []
-  else
-    match kind evd t with
-    | Lambda (na, ty, body) -> (na, ty) :: take_lambdas evd (n - 1) body
-    | _ -> failwith "drop_lambdas"
-
-let rec drop_all_lambdas evd t =
-  let open Constr in
-  let open EConstr in
-  match kind evd t with
-  | Lambda (na, ty, body) -> drop_all_lambdas evd body
-  | _ -> t
-
-let rec take_all_lambdas evd t =
-  let open Constr in
-  let open EConstr in
-  match kind evd t with
-  | Lambda (na, ty, body) -> (na, ty) :: take_all_lambdas evd body
-  | _ -> []
-
-let rec make_lambdas pref t =
-  let open Constr in
-  let open EConstr in
-  match pref with
-  | (na, ty) :: tl -> mkLambda (na, ty, make_lambdas tl t)
-  | [] -> t
-
-let rel_occurs evd t i =
-  let open Constr in
-  let open EConstr in
-  fold_constr
-    begin fun n b x ->
-      match kind evd x with
-      | Rel j -> if j - n = i then true else b
-      | _ -> b
-    end
-    false
-    evd
-    t
-
 let skip_cases extract evd t cont =
   let open Constr in
   let open EConstr in
@@ -180,11 +126,11 @@ let skip_cases extract evd t cont =
           let lst = List.map (List.hd) lst1 in
           let p = fst (List.hd lst) in
           let lst = List.map snd lst in
-          let branches2 = Array.of_list (List.map2 make_lambdas lambdas1 lst) in
+          let branches2 = Array.of_list (List.map2 (close mkLambda) lambdas1 lst) in
           let case2 =
             List.hd lst2
               begin fun h ->
-                let ret2 = make_lambdas lambdas2 h in
+                let ret2 = close mkLambda lambdas2 h in
                 if k > 0 then
                   f branches2 ret2
                 else
@@ -304,7 +250,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
          | _ ->
             failwith "extract_types: unsupported coinductive type (2)"
        end
-    | SEx (ind, na, SPred (i, _, _), body) ->
+    | SEx (ind, na, SPred (i, cop, _), body) ->
        begin
          match kind evd t with
          | App (c, [| t1; t2 |]) ->
@@ -331,7 +277,8 @@ let translate_proof stmt copreds cohyps evd ty prf =
                  in
                  let pr =
                    if peek_needed then
-                     mkApp (get_constr "peek", Array.of_list (tyargs1 @ [pr]))
+                     mkApp (get_constr (CPeek.get_peek_name cop.cop_name),
+                            Array.of_list (tyargs1 @ [pr]))
                    else
                      pr
                  in
@@ -361,11 +308,13 @@ let translate_proof stmt copreds cohyps evd ty prf =
                          in
                          mkApp (get_constr "eq_ind",
                                 [| ty0;
-                                   mkApp (get_constr "peek", Array.of_list (tyargs0 @ [pr0]));
+                                   mkApp (get_constr (CPeek.get_peek_name cop.cop_name),
+                                          Array.of_list (tyargs0 @ [pr0]));
                                    ret;
                                    x;
                                    pr0;
-                                   mkApp (get_constr "peek_eq", Array.of_list (tyargs0 @ [pr0]));
+                                   mkApp (get_constr (CPeek.get_peek_eq_name cop.cop_name),
+                                          Array.of_list (tyargs0 @ [pr0]));
                                 |])
                        else
                          x
@@ -378,6 +327,8 @@ let translate_proof stmt copreds cohyps evd ty prf =
          | _ ->
             failwith "extract_types: unsupported coinductive type (4)"
        end
+    | _ ->
+       failwith "impossible"
   in
   let rec extract_proofs ctx n s t =
     let skip =
@@ -431,17 +382,14 @@ let translate_proof stmt copreds cohyps evd ty prf =
         else
           let ch = make_coproof evd stmt (List.map (fun i n -> mkRel (n + 3 * p - i)) (range 0 p))
           in
-          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd ch));
           let t2 = CNorm.norm evd (mkApp (mkLambda (Name.Anonymous, ty, t), [| ch |]))
           in
-          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd t2));
           (* Assumption: all and-like and ex-like constructors in ch
              will be destroyed by normalizing t2; if any are left then
              t2 is not well-typed *)
           let lst =
             List.map2
               begin fun (p, pr) ty ->
-                Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd pr));
                 let ty2 = fix_proof p p evd ty in
                 (ty2,
                  mkCoFix (0, ([| Name.Anonymous |],
@@ -462,8 +410,6 @@ let translate_proof stmt copreds cohyps evd ty prf =
   in
   let prf' = CNorm.norm evd prf
   in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf'));
   let r = hlp 0 prf'
   in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd r));
   (evd, r)

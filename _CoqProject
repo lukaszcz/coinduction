@@ -3,12 +3,14 @@
 -I src
 src/cUtils.mli
 src/cUtils.ml
+src/cNorm.mli
+src/cNorm.ml
+src/cPeek.mli
+src/cPeek.ml
 src/cPred.mli
 src/cPred.ml
 src/cStmt.mli
 src/cStmt.ml
-src/cNorm.mli
-src/cNorm.ml
 src/cProof.mli
 src/cProof.ml
 src/g_coinduction.ml4

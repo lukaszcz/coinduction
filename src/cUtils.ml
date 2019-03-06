@@ -104,6 +104,52 @@ let rec close f ctx t =
 
 (***************************************************************************************)
 
+let rec drop_lambdas evd n t =
+  let open Constr in
+  let open EConstr in
+  if n = 0 then
+    t
+  else
+    match kind evd t with
+    | Lambda (na, ty, body) -> drop_lambdas evd (n - 1) body
+    | _ -> failwith "drop_lambdas"
+
+let rec take_lambdas evd n t =
+  let open Constr in
+  let open EConstr in
+  if n = 0 then
+    []
+  else
+    match kind evd t with
+    | Lambda (na, ty, body) -> (na, ty) :: take_lambdas evd (n - 1) body
+    | _ -> failwith "take_lambdas"
+
+let rec take_prods evd n t =
+  let open Constr in
+  let open EConstr in
+  if n = 0 then
+    []
+  else
+    match kind evd t with
+    | Prod (na, ty, body) -> (na, ty) :: take_prods evd (n - 1) body
+    | _ -> failwith "take_prods"
+
+let rec drop_all_lambdas evd t =
+  let open Constr in
+  let open EConstr in
+  match kind evd t with
+  | Lambda (na, ty, body) -> drop_all_lambdas evd body
+  | _ -> t
+
+let rec take_all_lambdas evd t =
+  let open Constr in
+  let open EConstr in
+  match kind evd t with
+  | Lambda (na, ty, body) -> (na, ty) :: take_all_lambdas evd body
+  | _ -> []
+
+(***************************************************************************************)
+
 let map_fold_constr f acc evd t =
   let open Constr in
   let open EConstr in
@@ -232,6 +278,19 @@ let map_fold_constr_ker f acc t =
 let map_constr_ker f x = snd (map_fold_constr_ker (fun m () t -> ((), f m t)) () x)
 
 let fold_constr_ker f acc x = fst (map_fold_constr_ker (fun m acc t -> (f m acc t, t)) acc x)
+
+let rel_occurs evd t i =
+  let open Constr in
+  let open EConstr in
+  fold_constr
+    begin fun n b x ->
+      match kind evd x with
+      | Rel j -> if j - n = i then true else b
+      | _ -> b
+    end
+    false
+    evd
+    t
 
 (***************************************************************************************)
 

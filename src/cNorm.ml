@@ -1,7 +1,5 @@
 (* Proof normalization -- implementation *)
 
-open CUtils
-
 let progress = ref false
 
 let norm_beta = Reductionops.nf_beta (Global.env ())

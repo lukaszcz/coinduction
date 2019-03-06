@@ -73,37 +73,6 @@ Qed.
 
 Print lem_two.
 
-Definition peek {A:Type} (s : Stream A) : Stream A :=
-  match s with
-  | Cons a s0 => Cons a s0
-  end.
-
-Lemma peek_eq : forall {A} (s : Stream A), peek s = s.
-Proof.
-  ccrush.
-Qed.
-
-Check (let H := (cofix H (A : Type) (s : Stream A) : Stream A := match s with
-                                                              | Cons a s0 => Cons a (H A s0)
-                                                              end) in
-  (fun (H0 : forall (A : Type) (s : Stream A), EqSt2 s (H A s)) (A : Type) (s : Stream A) =>
-   ex_intro (fun s' : Stream A => EqSt2 s s') (H A s) (H0 A s))
-    (cofix H0 (A : Type) (s : Stream A) : EqSt2 s (H A s) :=
-       eq_ind (peek (H A s)) (fun r => EqSt2 s r)
-       (match s as s0 return EqSt2 s0 (peek (H A s0)) with
-        | Cons a s0 => eqst2 a a s0 (H A s0) eq_refl (H0 A s0)
-        end)
-       (H A s)
-       (peek_eq (H A s))
-      )).
-
-fun (A : Type) (s : Stream A) => match s as s0 return (peek s0 = s0) with
-                                 | Cons a s0 => eq_refl
-                                 end
-     : forall (A : Type) (s : Stream A), peek s = s
-
-Print peek_eq.
-
 CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
 Proof.
   csolve on s.

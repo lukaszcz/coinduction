@@ -156,11 +156,14 @@ let make_stmt evd t =
                       begin
                         let (evd, p1, cp) = hlp evd p ectx ty in
                         match cp with
-                        | SPred _ ->
-                           let (evd, p2, x) =
-                             hlp evd p1 ((get_ex_arg_indname evd ty, p) :: ectx) body
-                           in
-                           (evd, p2, SEx (ind, na, cp, x))
+                        | SPred (_, cop, _) ->
+                           begin
+                             CPeek.declare_peek evd cop.cop_name;
+                             let (evd, p2, x) =
+                               hlp evd p1 ((get_ex_arg_indname evd ty, p) :: ectx) body
+                             in
+                             (evd, p2, SEx (ind, na, cp, x))
+                           end
                         | _ ->
                            failwith "unsupported coinductive statement (1)"
                       end
@@ -280,20 +283,6 @@ let make_green k =
         coargs
     in
     mkApp (get_constr (get_green_name cop cop.cop_name), Array.of_list args)
-  end
-
-let make_neutral =
-  stmt_to_constr begin fun n p cop coargs ->
-    let open EConstr in
-    let args =
-      List.map
-        begin function
-        | ATerm t -> t
-        | AEx i -> mkRel i
-        end
-        coargs
-    in
-    mkApp (get_constr cop.cop_name, Array.of_list args)
   end
 
 let get_red_type evd p cop =
