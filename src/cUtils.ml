@@ -108,11 +108,11 @@ let rec drop_lambdas evd n t =
   let open Constr in
   let open EConstr in
   if n = 0 then
-    t
+    (t, 0)
   else
     match kind evd t with
     | Lambda (na, ty, body) -> drop_lambdas evd (n - 1) body
-    | _ -> failwith "drop_lambdas"
+    | _ -> (t, n)
 
 let rec take_lambdas evd n t =
   let open Constr in
@@ -122,7 +122,7 @@ let rec take_lambdas evd n t =
   else
     match kind evd t with
     | Lambda (na, ty, body) -> (na, ty) :: take_lambdas evd (n - 1) body
-    | _ -> failwith "take_lambdas"
+    | _ -> []
 
 let rec take_prods evd n t =
   let open Constr in
@@ -133,6 +133,16 @@ let rec take_prods evd n t =
     match kind evd t with
     | Prod (na, ty, body) -> (na, ty) :: take_prods evd (n - 1) body
     | _ -> failwith "take_prods"
+
+let rec drop_prods evd n t =
+  let open Constr in
+  let open EConstr in
+  if n = 0 then
+    t
+  else
+    match kind evd t with
+    | Prod (na, ty, body) -> drop_prods evd (n - 1) body
+    | _ -> failwith "drop_prods"
 
 let rec drop_all_lambdas evd t =
   let open Constr in
@@ -146,6 +156,20 @@ let rec take_all_lambdas evd t =
   let open EConstr in
   match kind evd t with
   | Lambda (na, ty, body) -> (na, ty) :: take_all_lambdas evd body
+  | _ -> []
+
+let rec drop_all_prods evd t =
+  let open Constr in
+  let open EConstr in
+  match kind evd t with
+  | Prod (na, ty, body) -> drop_all_prods evd body
+  | _ -> t
+
+let rec take_all_prods evd t =
+  let open Constr in
+  let open EConstr in
+  match kind evd t with
+  | Prod (na, ty, body) -> (na, ty) :: take_all_prods evd body
   | _ -> []
 
 (***************************************************************************************)
@@ -279,18 +303,44 @@ let map_constr_ker f x = snd (map_fold_constr_ker (fun m () t -> ((), f m t)) ()
 
 let fold_constr_ker f acc x = fst (map_fold_constr_ker (fun m acc t -> (f m acc t, t)) acc x)
 
-let rel_occurs evd t i =
+let rel_occurs evd t lst =
   let open Constr in
   let open EConstr in
   fold_constr
     begin fun n b x ->
       match kind evd x with
-      | Rel j -> if j - n = i then true else b
+      | Rel j -> if List.mem (j - n) lst then true else b
       | _ -> b
     end
     false
     evd
     t
+
+let do_shift evd k t =
+  let open Constr in
+  let open EConstr in
+  map_constr
+    begin fun n t ->
+      match kind evd t with
+      | Rel i when i > n -> mkRel (i + k)
+      | _ -> t
+    end
+    evd
+    t
+
+let shift_binders_down evd k t =
+  assert (k >= 0);
+  if k = 0 then
+    t
+  else
+    do_shift evd (-k) t
+
+let shift_binders_up evd k t =
+  assert (k >= 0);
+  if k = 0 then
+    t
+  else
+    do_shift evd k t
 
 (***************************************************************************************)
 
