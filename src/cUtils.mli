@@ -19,7 +19,8 @@ val id_app : Id.t -> string -> Id.t
 
 val string_to_id : string -> Id.t
 
-val intern_constr : Environ.env -> Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * EConstr.t
+val intern_constr : Environ.env -> Evd.evar_map -> Constrexpr.constr_expr ->
+                    Evd.evar_map * EConstr.t
 
 val exists_global : string -> bool
 
@@ -49,13 +50,17 @@ val drop_all_prods : Evd.evar_map -> EConstr.t -> EConstr.t
 
 val take_all_prods : Evd.evar_map -> EConstr.t -> (Name.t * EConstr.t) list
 
-val map_fold_constr : (int -> 'a -> EConstr.t -> 'a * EConstr.t) -> 'a -> Evd.evar_map -> EConstr.t -> 'a * EConstr.t
+val map_fold_constr : (int -> 'a -> EConstr.t -> 'a * EConstr.t) ->
+                      'a -> Evd.evar_map -> EConstr.t ->
+                      'a * EConstr.t
 
 val map_constr : (int -> EConstr.t -> EConstr.t) -> Evd.evar_map -> EConstr.t -> EConstr.t
 
 val fold_constr : (int -> 'a -> EConstr.t -> 'a) -> 'a -> Evd.evar_map -> EConstr.t -> 'a
 
-val map_fold_constr_ker : (int -> 'a -> Constr.t -> 'a * Constr.t) -> 'a -> Constr.t -> 'a * Constr.t
+val map_fold_constr_ker : (int -> 'a -> Constr.t -> 'a * Constr.t) ->
+                          'a -> Constr.t ->
+                          'a * Constr.t
 
 val map_constr_ker : (int -> Constr.t -> Constr.t) -> Constr.t -> Constr.t
 

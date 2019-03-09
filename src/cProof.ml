@@ -117,7 +117,7 @@ let rec update_ctx evd k n t ctx =
 let rec find_in_ctx i ctx =
   match ctx with
   | [] -> raise Not_found
-  | ((j, _, _, _) as t) :: _ -> t
+  | ((j, _, _, _) as t) :: _ when j = i -> t
   | _ :: ctx' -> find_in_ctx i ctx'
 
 let skip_cases extract evd n ctx t cont =
@@ -152,13 +152,15 @@ let skip_cases extract evd n ctx t cont =
              let (_, ty, _, _) = find_in_ctx j ctx in
              match kind evd ty with
              | App (c, args) ->
-                List.map (shift_binders_up evd (n - j)) (drop (Array.length args - k) (Array.to_list args))
+                List.map (shift_binders_up evd (n - j))
+                  (drop (Array.length args - k + 1) (Array.to_list args))
              | _ ->
                 failwith "skip_cases: unsupported coinductive type matched on"
            end
-        | _ -> []
+        | _ -> repl (k - 1) mkSet
       in
-      assert (retargs = [] || List.length retargs = k);
+      let retargs = retargs @ [ value ] in
+      assert (List.length retargs = k);
       let ret0 = drop_all_lambdas evd ret in
       let peek_needed = rel_occurs evd ret0 (range 1 (k + 1)) in
       let prods = take_prods evd m ret0 in
@@ -207,10 +209,10 @@ let skip_cases extract evd n ctx t cont =
   skip true n 0 ctx t
 
 let make_ch_prf evd n p i ctx =
-  let open Constr in
   let open EConstr in
   mkApp (mkRel (n + 3 * p - i),
-         Array.of_list (List.rev (List.map (fun (_, _, k, t) -> shift_binders_up evd (n - k) t) ctx)))
+         Array.of_list (List.rev (List.map (fun (_, _, k, t) ->
+                                      shift_binders_up evd (n - k) t) ctx)))
 
 let translate_proof stmt copreds cohyps evd ty prf =
   let open Constr in
@@ -292,7 +294,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
          | Prod (na1, ty1, body1) ->
             extract_types (fun x -> fa (mkProd (na1, ty1, x)))
               n0 retargs peek_needed peek_eq_needed m k
-              ((n, ty1, n, mkRel 0) :: ctx) (n + 1) body body1
+              ((n, ty1, n + 1, mkRel 1) :: ctx) (n + 1) body body1
          | _ ->
             failwith "extract_types: unsupported coinductive type (1)"
        end
@@ -302,7 +304,8 @@ let translate_proof stmt copreds cohyps evd ty prf =
        begin
          match kind evd t with
          | App (c, args2) when Array.length args2 = List.length args ->
-            List.concat (List.map2 (extract_types fa n0 retargs peek_needed peek_eq_needed m k ctx n)
+            List.concat (List.map2
+                           (extract_types fa n0 retargs peek_needed peek_eq_needed m k ctx n)
                            args (Array.to_list args2))
          | _ ->
             failwith "extract_types: unsupported coinductive type (2)"
@@ -342,9 +345,11 @@ let translate_proof stmt copreds cohyps evd ty prf =
                  let t3 = CNorm.norm_beta evd (mkApp (t2, [| pr |])) in
                  let tps =
                    List.combine
-                     (extract_types (fun x -> fa (close mkProd prods x)) n0 retargs peek_needed peek_eq_needed
+                     (extract_types (fun x -> fa (close mkProd prods x))
+                        n0 retargs peek_needed peek_eq_needed
                         m k ctx (n + plen) body t3)
-                     (extract_types (fun x -> fa (close mkProd prods2 x)) n0 retargs false false
+                     (extract_types (fun x -> fa (close mkProd prods2 x))
+                        n0 retargs false false
                         m k ctx (n + plen + 1) body body2)
                  in
                  (fun f -> f (close mkProd prods t1)) ::
@@ -356,13 +361,18 @@ let translate_proof stmt copreds cohyps evd ty prf =
                        if rel_occurs evd y (range (plen + m + 1) (plen + m + k + 1)) then
                          let pr0 =
                            mkApp (mkRel (n0 + 3 * p - i),
-                                  Array.of_list (List.rev (List.map (fun (j, _, _, _) -> mkRel (n0 - j)) ctx)))
+                                  Array.of_list
+                                    (List.rev (List.map
+                                                 (fun (j, _, _, _) -> mkRel (n0 - j))
+                                                 ctx)))
                          in
                          let tyargs0 = List.map (shift_binders_down evd (n - n0 + plen)) tyargs1 in
                          let ty0 = shift_binders_down evd (n - n0 + plen) ty2 in
                          let subst_retargs t =
                            CNorm.norm_beta evd
-                             (mkApp (List.fold_left (fun acc _ -> mkLambda (na2, ty2, acc)) t retargs,
+                             (mkApp (List.fold_left
+                                       (fun acc _ -> mkLambda (na2, ty2, acc))
+                                       t retargs,
                                      Array.of_list retargs))
                          in
                          let ret =
@@ -407,7 +417,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
            match kind evd t with
            | Lambda (na1, ty1, body1) ->
               List.map (fun (p, x) -> (p, mkLambda (na1, ty1, x)))
-                (extract_proofs ((n, ty1, n, mkRel 0) :: ctx) (n + 1) body body1)
+                (extract_proofs ((n, ty1, n + 1, mkRel 1) :: ctx) (n + 1) body body1)
            | _ ->
               failwith "unsupported coinductive proof (1)"
          end

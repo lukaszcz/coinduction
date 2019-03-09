@@ -94,7 +94,8 @@ Qed.
 
 Print lem_ex_two.
 
-CoInduction lem_ex_ex_two : forall (A : Type) (s : Stream A), exists s1 s2, EqSt2 s s1 /\ EqSt2 s2 s.
+CoInduction lem_ex_ex_two :
+  forall (A : Type) (s : Stream A), exists s1 s2, EqSt2 s s1 /\ EqSt2 s2 s.
 Proof.
   csolve on s.
 Qed.
@@ -139,17 +140,16 @@ CoInduction lem_ex_impl : forall (A : Type) (s1 s2 : Stream A), EqSt3 s1 s2 -> e
 Proof.
   intros A s1 s2 H.
   inversion_clear H.
-  Show Proof.
   generalize (CH A s0 s3 X); intro HH.
   destruct HH as [ s H ].
   eexists; constructor; eauto.
-  Show Proof.
 Qed.
 
 Print lem_ex_impl.
 
 CoInductive PlusSt : Stream nat -> Stream nat -> Stream nat -> Prop :=
-| plus_st : forall x y s1 s2 s3, PlusSt s1 s2 s3 -> PlusSt (Cons x s1) (Cons y s2) (Cons (x + y) s3).
+| plus_st : forall x y s1 s2 s3, PlusSt s1 s2 s3 ->
+                                 PlusSt (Cons x s1) (Cons y s2) (Cons (x + y) s3).
 
 Lemma lem_plus : forall s1 s2 x y, plus (Cons x s1) (Cons y s2) = Cons (x + y) (plus s1 s2).
 Proof.
