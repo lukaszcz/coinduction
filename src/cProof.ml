@@ -109,53 +109,44 @@ let subst evd k t s =
 let rec update_ctx evd k n t ctx =
   match ctx with
   | [] -> []
-  | (j, ty, _, _) :: ctx1 when j = k ->
-     (j, ty, n, t) :: update_ctx evd k n t ctx1
-  | (j, ty, m, s) :: ctx1 ->
-     (j, ty, n, subst evd k t (shift_binders_up evd (n - m) s)) :: update_ctx evd k n t ctx1
+  | (j, _, _) :: ctx1 when j = k ->
+     (j, n, t) :: update_ctx evd k n t ctx1
+  | (j, m, s) :: ctx1 ->
+     (j, n, subst evd k t (shift_binders_up evd (n - m) s)) :: update_ctx evd k n t ctx1
 
-let rec find_in_ctx i ctx =
-  match ctx with
-  | [] -> raise Not_found
-  | ((j, _, _, _) as t) :: _ when j = i -> t
-  | _ :: ctx' -> find_in_ctx i ctx'
-
-let skip_cases extract evd n ctx t cont =
+let skip_cases extract evd n ctx tctx t cont =
   let open Constr in
   let open EConstr in
-  let rec skip b_start n j ctx t =
+  let rec skip b_start n j ctx tctx t =
     let combine m ci (f : EConstr.t array -> EConstr.t -> EConstr.t) branches ret value =
       let lst1 =
         List.map2
           begin fun k br ->
             let (t, i) = drop_lambdas evd (m + k + j) br in
-            skip false (n + m + k + j - i) i ctx t
+            let tps = List.rev (List.map snd (take_lambdas evd (m + k + j - i) br)) in
+            skip false (n + m + k + j - i) i ctx (tps @ tctx) t
           end
           (Array.to_list ci.ci_cstr_ndecls)
           branches
       in
       let lambdas1 =
-        List.map2 (fun k -> take_lambdas evd (m + k + j)) (Array.to_list ci.ci_cstr_ndecls) branches
+        List.map2 (fun k -> take_lambdas evd (m + k + j))
+          (Array.to_list ci.ci_cstr_ndecls) branches
       in
       let lambdas2 = take_all_lambdas evd ret in
       let k = List.length lambdas2 in
-      let ctx =
-        match kind evd value with
-        | Rel i -> update_ctx evd (n - i) (n + k) (mkRel 1) ctx
-        | _ -> ctx
-      in
       let retargs =
         match kind evd value with
         | Rel i ->
            begin
-             let j = n - i in
-             let (_, ty, _, _) = find_in_ctx j ctx in
+             assert (n = List.length tctx);
+             let ty = List.nth tctx (i - 1) in
              match kind evd ty with
              | App (c, args) ->
-                List.map (shift_binders_up evd (n - j))
+                List.map (shift_binders_up evd i)
                   (drop (Array.length args - k + 1) (Array.to_list args))
              | _ ->
-                failwith "skip_cases: unsupported coinductive type matched on"
+                failwith "skip_cases: match on an unsupported (co)inductive type"
            end
         | _ -> repl (k - 1) mkSet
       in
@@ -165,6 +156,11 @@ let skip_cases extract evd n ctx t cont =
       let peek_needed = rel_occurs evd ret0 (range 1 (k + 1)) in
       let prods = take_prods evd m ret0 in
       let ret0 = drop_prods evd m ret0 in
+      let ctx =
+        match kind evd value with
+        | Rel i -> update_ctx evd (n - i) (n + k) (mkRel 1) ctx
+        | _ -> ctx
+      in
       let lst2 = extract retargs peek_needed (peek_needed && b_start) n m k ctx ret0 in
       let len = List.length (List.hd lst1) in
       assert (List.length lst2 = len);
@@ -192,7 +188,9 @@ let skip_cases extract evd n ctx t cont =
     in
     match kind evd t with
     | Case (ci, ret, value, branches) ->
-       combine 0 ci (fun br ret -> mkCase (ci, ret, value, br)) (Array.to_list branches) ret value
+       combine 0 ci
+         (fun br ret -> mkCase (ci, ret, value, br))
+         (Array.to_list branches) ret value
     | App (c, args) ->
        begin
          match kind evd c with
@@ -201,17 +199,17 @@ let skip_cases extract evd n ctx t cont =
               (fun br ret -> mkApp (mkCase (ci, ret, value, br), args))
               (Array.to_list branches) ret value
          | _ ->
-            cont n t
+            cont tctx n t
        end
     | _ ->
-       cont n t
+       cont tctx n t
   in
-  skip true n 0 ctx t
+  skip true n 0 ctx tctx t
 
 let make_ch_prf evd n p i ctx =
   let open EConstr in
   mkApp (mkRel (n + 3 * p - i),
-         Array.of_list (List.rev (List.map (fun (_, _, k, t) ->
+         Array.of_list (List.rev (List.map (fun (_, k, t) ->
                                       shift_binders_up evd (n - k) t) ctx)))
 
 let translate_proof stmt copreds cohyps evd ty prf =
@@ -294,7 +292,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
          | Prod (na1, ty1, body1) ->
             extract_types (fun x -> fa (mkProd (na1, ty1, x)))
               n0 retargs peek_needed peek_eq_needed m k
-              ((n, ty1, n + 1, mkRel 1) :: ctx) (n + 1) body body1
+              ((n, n + 1, mkRel 1) :: ctx) (n + 1) body body1
          | _ ->
             failwith "extract_types: unsupported coinductive type (1)"
        end
@@ -358,12 +356,12 @@ let translate_proof stmt copreds cohyps evd ty prf =
                        assert (k > 0);
                        let x = fx f in
                        let y = fy id in
-                       if rel_occurs evd y (range (plen + m + 1) (plen + m + k + 1)) then
+                       if rel_occurs evd y (range 1 (m + k + 1)) then
                          let pr0 =
                            mkApp (mkRel (n0 + 3 * p - i),
                                   Array.of_list
                                     (List.rev (List.map
-                                                 (fun (j, _, _, _) -> mkRel (n0 - j))
+                                                 (fun (j, _, _) -> mkRel (n0 - j))
                                                  ctx)))
                          in
                          let tyargs0 = List.map (shift_binders_down evd (n - n0 + plen)) tyargs1 in
@@ -402,22 +400,22 @@ let translate_proof stmt copreds cohyps evd ty prf =
     | _ ->
        failwith "impossible"
   in
-  let rec extract_proofs ctx n s t =
+  let rec extract_proofs ctx tctx n s t =
     let skip =
       skip_cases
         begin fun retargs peek_needed peek_eq_needed n m k ctx ->
           extract_types (fun x -> x) n retargs peek_needed peek_eq_needed m k ctx (n + k + m) s
         end
-        evd n ctx t
+        evd n ctx tctx t
     in
     match s with
     | SProd (na, ty, body) ->
        skip
-         begin fun n t ->
+         begin fun tctx n t ->
            match kind evd t with
            | Lambda (na1, ty1, body1) ->
               List.map (fun (p, x) -> (p, mkLambda (na1, ty1, x)))
-                (extract_proofs ((n, ty1, n + 1, mkRel 1) :: ctx) (n + 1) body body1)
+                (extract_proofs ((n, n + 1, mkRel 1) :: ctx) (ty1 :: tctx) (n + 1) body body1)
            | _ ->
               failwith "unsupported coinductive proof (1)"
          end
@@ -427,10 +425,12 @@ let translate_proof stmt copreds cohyps evd ty prf =
        begin
          let m = List.length args in
          skip
-           begin fun n t ->
+           begin fun tctx n t ->
              match kind evd t with
              | App (c, args2) when Array.length args2 = 2 * m ->
-                List.concat (List.map2 (extract_proofs ctx n) args (drop m (Array.to_list args2)))
+                List.concat (List.map2 (extract_proofs ctx tctx n)
+                               args
+                               (drop m (Array.to_list args2)))
              | _ ->
                 failwith "unsupported coinductive proof (2)"
            end
@@ -438,10 +438,10 @@ let translate_proof stmt copreds cohyps evd ty prf =
     | SEx (ind, na, ty, body) ->
        begin
          skip
-           begin fun n t ->
+           begin fun tctx n t ->
              match kind evd t with
              | App (c, [| _; _; t1; t2 |]) ->
-                extract_proofs ctx n ty t1 @ extract_proofs ctx n body t2
+                extract_proofs ctx tctx n ty t1 @ extract_proofs ctx tctx n body t2
              | _ ->
                 begin
                   failwith "unsupported coinductive proof (3)"
@@ -471,7 +471,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
                               [| ty2 |],
                               [| fix_proof 0 (p + 1) evd pr |])))
               end
-              (extract_proofs [] 0 stmt t2)
+              (extract_proofs [] [] 0 stmt t2)
               cohyps
           in
           make_full_coproof evd stmt lst

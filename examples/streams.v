@@ -112,26 +112,29 @@ Check (let
          fun (H1 : Cons x s0 = s1) (H2 : Cons x s3 = s2) =>
          match H1 with
          | eq_refl =>
-             fun H3 : Cons x s3 = s2 => match H3 with
-                                        | eq_refl => fun X0 : EqSt3 s0 s3 => Cons x (H A s0 s3 X0)
-                                        end
+             fun H3 : Cons x s3 = s2 =>
+             match H3 with
+             | eq_refl => fun X0 : EqSt3 s0 s3 => Cons x (H A s0 s3 X0)
+             end
          end H2 X
      end eq_refl eq_refl in
  let
    cofix H0 (A : Type) (s1 s2 : Stream A) (H1 : EqSt3 s1 s2) : EqSt2 s1 (H A s1 s2 H1) :=
      eq_ind (peek__Stream A (H A s1 s2 H1)) (fun s : Stream A => EqSt2 s1 s)
-       (match H1 as H2 in (EqSt3 s s0) return (s = s1 -> s0 = s2 -> EqSt2 s1 (peek__Stream A (H A s s0 H2))) with
+       (match
+          H1 as H2 in (EqSt3 s s0) return (s = s1 -> s0 = s2 -> EqSt2 s1 (peek__Stream A (H A s s0 H2)))
+        with
         | eqst3 x s0 s3 X =>
             fun (H2 : Cons x s0 = s1) (H3 : Cons x s3 = s2) =>
-              match H2 in (_ = y) return (Cons x s3 = s2 -> forall X0 : EqSt3 s0 s3,
-                                             EqSt2 y (peek__Stream A (H A (Cons x s0) (Cons x s3) (eqst3 x s0 s3 X0))))
-              with
-              | eq_refl =>
+            match
+              H2 in (_ = y) return (Cons x s3 = s2 -> forall X0 : EqSt3 s0 s3, EqSt2 y (peek__Stream A (H A (Cons x s0) (Cons x s3) (eqst3 x s0 s3 X0))))
+            with
+            | eq_refl =>
                 fun H4 : Cons x s3 = s2 =>
                 match H4 with
-                | eq_refl => fun X0 => eqst2 x x s0 (H A s0 s3 X0) eq_refl (H0 A s0 s3 X0)
+                | eq_refl => fun X0 : EqSt3 s0 s3 => eqst2 x x s0 (H A s0 s3 X0) eq_refl (H0 A s0 s3 X0)
                 end
-              end H3 X
+            end H3 X
         end eq_refl eq_refl) (H A s1 s2 H1) (peek_eq__Stream A (H A s1 s2 H1)) in
  fun (A : Type) (s1 s2 : Stream A) (H1 : EqSt3 s1 s2) =>
  ex_intro (fun s : Stream A => EqSt2 s1 s) (H A s1 s2 H1) (H0 A s1 s2 H1)).
