@@ -226,10 +226,10 @@ let skip_cases extract evd copreds n ctx tctx t cont =
              match kind evd ty with
              | Ind _ ->
                 []
-             | App (c, args) ->
+             | App (c, args1) ->
                 (* drop the parameters and shift binders *)
                 List.map (shift_binders_up evd i)
-                  (drop (Array.length args - k + 1) (Array.to_list args))
+                  (drop (Array.length args1 - k + 1) (Array.to_list args1))
              | _ ->
                 failwith "skip_cases: match on an unsupported (co)inductive type"
            end
@@ -242,7 +242,33 @@ let skip_cases extract evd copreds n ctx tctx t cont =
       let len = List.length prods in
       let ctx =
         match kind evd value with
-        | Rel i -> assert (n >= i); update_ctx evd (n - i) (n + k) (mkRel 1) ctx
+        | Rel i ->
+           begin
+             assert (n >= i);
+             let ctx = update_ctx evd (n - i) (n + k) (mkRel 1) ctx in
+             if List.mem (n - i) (List.map (fun (j, _, _) -> j) ctx) then
+               (* If Rel i points at a coinductive hypothesis parameter *)
+               let ty = List.nth tctx (i - 1) in
+               match kind evd ty with
+               | Ind _ ->
+                  ctx
+               | App (c, args1) ->
+                (* drop the parameters *)
+                  let tyargs = drop (Array.length args1 - k + 1) (Array.to_list args1) in
+                  List.fold_left
+                    begin fun ctx (l, argty) ->
+                      match kind evd argty with
+                      | Rel j -> assert (i + j <= n);
+                        update_ctx evd (n - i - j) (n + k) (mkRel (k - l)) ctx
+                      | _ -> ctx
+                    end
+                    ctx
+                    (List.combine (range 0 (k - 1)) tyargs)
+               | _ ->
+                  ctx
+             else
+               ctx
+           end
         | _ -> ctx
       in
       let ctx =

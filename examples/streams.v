@@ -150,6 +150,30 @@ Qed.
 
 Print lem_geq.
 
+CoInduction lem_geq_1 : forall s1 s2, GeqSt2 s1 s2 -> exists s, GeqSt s1 s /\ GeqSt s s2.
+Proof.
+  intros s1 s2 H.
+  destruct H; ccrush.
+Qed.
+
+Print lem_geq_1.
+
+CoInduction lem_geq_2 : forall s1 s2, GeqSt2 s1 s2 -> exists s, GeqSt s1 s /\ GeqSt s s2.
+Proof.
+  intros s1 s2 H.
+  inversion H; ccrush.
+Qed.
+
+Print lem_geq_2.
+
+CoInduction lem_geq_3 : forall s1 s2, GeqSt2 s1 s2 -> exists s, GeqSt s1 s /\ GeqSt s s2.
+Proof.
+  intros s1 s2 H.
+  inversion H; subst; clear H; ccrush.
+Qed.
+
+Print lem_geq_3.
+
 (*
 CoInductive MinusSt : Stream nat -> Stream nat -> Stream nat -> Set :=
 | minus_st : forall x y s1 s2 s3, MinusSt s1 s2 s3 ->
