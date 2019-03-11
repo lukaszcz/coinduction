@@ -19,8 +19,6 @@ Proof.
   ccrush.
 Qed.
 
-Print lem_eq_refl.
-
 CoInduction lem_eq_sym : forall s t, s == t -> t == s.
 Proof.
   ccrush.
@@ -60,25 +58,6 @@ CoInduction lem_red_ex : forall t, { s & t ==> s }.
 Proof.
   intro t.
   destruct t; pose lem_red_refl; ccrush.
-Qed.
-
-CoInductive Red0 : term -> term -> Prop :=
-| red0_C : forall i, Red0 (C i) (C i)
-| red0_A : forall t t', Red0 t t' -> Red0 (A t) (A t')
-| red0_B : forall s s' t t', Red0 s s' -> Red0 t t' -> Red0 (B s t) (B s' t')
-| red0_AB : forall t t1 t2, Red0 t t1 -> Red0 t t2 -> Red0 (A t) (B t1 t2).
-
-Notation "A --> B" := (Red0 A B) (at level 70).
-
-CoInduction lem_red0_refl : forall t, t --> t.
-Proof.
-  ccrush.
-Qed.
-
-CoInduction lem_red_ex_1 : forall t t', t ==> t' -> exists s, t --> s /\ s --> t'.
-Proof.
-  intros t t' H.
-  inversion_clear H; ccrush. (* 10 sec *)
 Qed.
 
 CoInductive Peak : term -> term -> term -> Set :=
@@ -188,3 +167,22 @@ Proof.
       eexists; split; constructor; eauto.
 Qed.
 *)
+
+CoInductive Red0 : term -> term -> Prop :=
+| red0_C : forall i, Red0 (C i) (C i)
+| red0_A : forall t t', Red0 t t' -> Red0 (A t) (A t')
+| red0_B : forall s s' t t', Red0 s s' -> Red0 t t' -> Red0 (B s t) (B s' t')
+| red0_AB : forall t t1 t2, Red0 t t1 -> Red0 t t2 -> Red0 (A t) (B t1 t2).
+
+Notation "A --> B" := (Red0 A B) (at level 70).
+
+CoInduction lem_red0_refl : forall t, t --> t.
+Proof.
+  ccrush.
+Qed.
+
+CoInduction lem_red_ex_1 : forall t t', t ==> t' -> exists s, t --> s /\ s --> t'.
+Proof.
+  intros t t' H.
+  inversion_clear H; ccrush. (* 10 sec *)
+Qed.
