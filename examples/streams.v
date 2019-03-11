@@ -150,6 +150,7 @@ Qed.
 
 Print lem_geq.
 
+(*
 CoInductive MinusSt : Stream nat -> Stream nat -> Stream nat -> Set :=
 | minus_st : forall x y s1 s2 s3, MinusSt s1 s2 s3 ->
                                   MinusSt (Cons x s1) (Cons y s2) (Cons (x - y) s3).
@@ -165,6 +166,6 @@ Proof.
   destruct HH as [s HH1].
   exists (Cons__g Stream__r nat (y - (y - x)) s).
   ccrush.
-Qed.
+Qed. *)
 
 (* Set Printing All. *)

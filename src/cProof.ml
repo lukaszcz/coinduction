@@ -137,8 +137,6 @@ let fix_ctx evd n args lams ctx =
                         update_ctx evd (n + m - i) (n + m) left ctx
                      | _ ->
                         begin
-                          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd arg));
-                          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd lam));
                           Feedback.msg_warning (Pp.str ("unsupported coinductive proof:" ^
                                                           " type check may fail (1)"));
                           ctx
@@ -602,7 +600,6 @@ let translate_proof stmt copreds cohyps evd ty prf =
       | _ ->
          failwith "can't translate the proof: bad prefix"
   in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf));
   let prf' = CNorm.norm evd prf
   in
   Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf'));

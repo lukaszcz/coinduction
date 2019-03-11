@@ -298,11 +298,14 @@ Ltac simp0 f H :=
   let tp := type of H in
   lazymatch tp with
     | (exists x, _) => elim H; clear H; xintro x; sintro tt
+    | { x & _ } => elim H; clear H; xintro x; sintro tt
+    | { x | _ } => elim H; clear H; xintro x; sintro tt
     | ?A = ?A => clear H
     | ?A -> ?A => clear H
     | ?A -> ?B = ?B => clear H
     | ?A /\ ?A => cut A; [ clear H; sintro tt | destruct H; assumption ]
     | ?A /\ ?B => elim H; clear H; sintro tt; sintro tt
+    | prod ?A ?B => elim H; clear H; sintro tt; sintro tt
     | ?A /\ ?B -> ?C => cut (A -> B -> C);
                                     [ clear H; sintro tt
                                     | intro; intro; apply H; split; assumption ]
@@ -741,6 +744,9 @@ Ltac ysplit :=
     | [ |- ?A /\ _ ] =>
       cut A; [ let H := fresh "H" in
                intro H; split; [ exact H | ysimp H ] | idtac ]
+    | [ |- prod ?A _ ] =>
+      cut A; [ let H := fresh "H" in
+               intro H; split; [ exact H | ysimp H ] | idtac ]
     | [ |- context[match ?X with _ => _ end] ] => ydestruct X
     | [ H : context[match ?X with _ => _ end] |- _ ] => ydestruct X
   end.
@@ -894,6 +900,10 @@ Ltac yelles0 defs n rtrace gtrace :=
         | [ |- context[match ?X with _ => _ end] ] => doyelles defs n || fail 1
         | [ H : context[match ?X with _ => _ end] |- _ ] => doyelles defs n || fail 1
         | [ |- exists x, _ ] =>
+          eexists; yelles0 defs n rtrace (gtrace, G)
+        | [ |- { x & _ } ] =>
+          eexists; yelles0 defs n rtrace (gtrace, G)
+        | [ |- { x | _ } ] =>
           eexists; yelles0 defs n rtrace (gtrace, G)
         | [ H : forall x, G |- _ ] =>
           simple eapply H; yelles0 defs k rtrace (gtrace, G)
