@@ -105,40 +105,6 @@ Print lem_ex_ex_two.
 CoInductive EqSt3 {A : Type} : Stream A -> Stream A -> Type :=
 | eqst3 : forall x s1 s2, EqSt3 s1 s2 -> EqSt3 (Cons x s1) (Cons x s2).
 
-Check (let
-   cofix H (A : Type) (s1 s2 : Stream A) (H0 : EqSt3 s1 s2) : Stream A :=
-     match H0 in (EqSt3 s s0) return (s = s1 -> s0 = s2 -> Stream A) with
-     | eqst3 x s0 s3 X =>
-         fun (H1 : Cons x s0 = s1) (H2 : Cons x s3 = s2) =>
-         match H1 with
-         | eq_refl =>
-             fun H3 : Cons x s3 = s2 =>
-             match H3 with
-             | eq_refl => fun X0 : EqSt3 s0 s3 => Cons x (H A s0 s3 X0)
-             end
-         end H2 X
-     end eq_refl eq_refl in
- let
-   cofix H0 (A : Type) (s1 s2 : Stream A) (H1 : EqSt3 s1 s2) : EqSt2 s1 (H A s1 s2 H1) :=
-     eq_ind (peek__Stream A (H A s1 s2 H1)) (fun s : Stream A => EqSt2 s1 s)
-       (match
-          H1 as H2 in (EqSt3 s s0) return (s = s1 -> s0 = s2 -> EqSt2 s1 (peek__Stream A (H A s s0 H2)))
-        with
-        | eqst3 x s0 s3 X =>
-            fun (H2 : Cons x s0 = s1) (H3 : Cons x s3 = s2) =>
-            match
-              H2 in (_ = y) return (Cons x s3 = s2 -> forall X0 : EqSt3 s0 s3, EqSt2 y (peek__Stream A (H A (Cons x s0) (Cons x s3) (eqst3 x s0 s3 X0))))
-            with
-            | eq_refl =>
-                fun H4 : Cons x s3 = s2 =>
-                match H4 with
-                | eq_refl => fun X0 : EqSt3 s0 s3 => eqst2 x x s0 (H A s0 s3 X0) eq_refl (H0 A s0 s3 X0)
-                end
-            end H3 X
-        end eq_refl eq_refl) (H A s1 s2 H1) (peek_eq__Stream A (H A s1 s2 H1)) in
- fun (A : Type) (s1 s2 : Stream A) (H1 : EqSt3 s1 s2) =>
- ex_intro (fun s : Stream A => EqSt2 s1 s) (H A s1 s2 H1) (H0 A s1 s2 H1)).
-
 CoInduction lem_ex_impl : forall (A : Type) (s1 s2 : Stream A), EqSt3 s1 s2 -> exists s, EqSt2 s1 s.
 Proof.
   intros A s1 s2 H.
@@ -167,3 +133,38 @@ Proof.
   rewrite lem_plus.
   ccrush.
 Qed.
+
+CoInductive GeqSt : Stream nat -> Stream nat -> Prop :=
+| geq_eq_st : forall x s1 s2, GeqSt s1 s2 -> GeqSt (Cons x s1) (Cons x s2)
+| geq_gt_st : forall x y s1 s2, x > y -> GeqSt s1 s2 -> GeqSt (Cons x s1) (Cons x s2).
+
+CoInductive GeqSt2 : Stream nat -> Stream nat -> Set :=
+| geq_eq_st2 : forall x s1 s2, GeqSt2 s1 s2 -> GeqSt2 (Cons x s1) (Cons x s2)
+| geq_gt_st2 : forall x y s1 s2, x > y -> GeqSt2 s1 s2 -> GeqSt2 (Cons x s1) (Cons x s2).
+
+CoInduction lem_geq : forall s1 s2, GeqSt2 s1 s2 -> exists s, GeqSt s1 s /\ GeqSt s s2.
+Proof.
+  intros s1 s2 H.
+  inversion_clear H; ccrush.
+Qed.
+
+Print lem_geq.
+
+CoInductive MinusSt : Stream nat -> Stream nat -> Stream nat -> Set :=
+| minus_st : forall x y s1 s2 s3, MinusSt s1 s2 s3 ->
+                                  MinusSt (Cons x s1) (Cons y s2) (Cons (x - y) s3).
+
+Require Import Omega.
+
+CoInduction lem_minus : forall s1 s2 s3, GeqSt2 s1 s2 -> MinusSt s1 s2 s3 -> exists s, PlusSt s3 s s1.
+Proof.
+  intros s1 s2 s3 H1 H2.
+  inversion H1 as [x y t1 t2 H0]; subst.
+  inversion_clear H2 as [x y t1 t2 t3 H0].
+  generalize (CH t1 t2 t3 H0); intro HH.
+  destruct HH as [s HH1].
+  exists (Cons__g Stream__r nat (y - (y - x)) s).
+  ccrush.
+Qed.
+
+(* Set Printing All. *)

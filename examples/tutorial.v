@@ -56,6 +56,12 @@ Proof.
   destruct H1; inversion_clear H2; econstructor; eauto.
 Qed.
 
+CoInduction lem_red_ex : forall t, { s & t ==> s }.
+Proof.
+  intro t.
+  destruct t; pose lem_red_refl; ccrush.
+Qed.
+
 CoInduction lem_red_confl : forall s t t', s ==> t -> s ==> t' -> { s' & (t ==> s') * (t' ==> s') }.
 Proof.
   intros s t t' H1 H2.

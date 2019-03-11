@@ -34,13 +34,13 @@ val get_ind_nparams : inductive -> int
 
 val close : (Name.t * 'a * 'a -> 'a) -> (Name.t * 'a) list -> 'a -> 'a
 
-val drop_lambdas : Evd.evar_map -> int -> EConstr.t -> EConstr.t * int
+val drop_lambdas : Evd.evar_map -> int -> EConstr.t -> EConstr.t
 
 val take_lambdas : Evd.evar_map -> int -> EConstr.t -> (Name.t * EConstr.t) list
 
-val take_prods : Evd.evar_map -> int -> EConstr.t -> (Name.t * EConstr.t) list
-
 val drop_prods : Evd.evar_map -> int -> EConstr.t -> EConstr.t
+
+val take_prods : Evd.evar_map -> int -> EConstr.t -> (Name.t * EConstr.t) list
 
 val drop_all_lambdas : Evd.evar_map -> EConstr.t -> EConstr.t
 

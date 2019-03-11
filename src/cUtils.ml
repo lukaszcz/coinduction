@@ -108,11 +108,11 @@ let rec drop_lambdas evd n t =
   let open Constr in
   let open EConstr in
   if n = 0 then
-    (t, 0)
+    t
   else
     match kind evd t with
     | Lambda (na, ty, body) -> drop_lambdas evd (n - 1) body
-    | _ -> (t, n)
+    | _ -> t
 
 let rec take_lambdas evd n t =
   let open Constr in
@@ -124,16 +124,6 @@ let rec take_lambdas evd n t =
     | Lambda (na, ty, body) -> (na, ty) :: take_lambdas evd (n - 1) body
     | _ -> []
 
-let rec take_prods evd n t =
-  let open Constr in
-  let open EConstr in
-  if n = 0 then
-    []
-  else
-    match kind evd t with
-    | Prod (na, ty, body) -> (na, ty) :: take_prods evd (n - 1) body
-    | _ -> failwith "take_prods"
-
 let rec drop_prods evd n t =
   let open Constr in
   let open EConstr in
@@ -142,7 +132,17 @@ let rec drop_prods evd n t =
   else
     match kind evd t with
     | Prod (na, ty, body) -> drop_prods evd (n - 1) body
-    | _ -> failwith "drop_prods"
+    | _ -> t
+
+let rec take_prods evd n t =
+  let open Constr in
+  let open EConstr in
+  if n = 0 then
+    []
+  else
+    match kind evd t with
+    | Prod (na, ty, body) -> (na, ty) :: take_prods evd (n - 1) body
+    | _ -> []
 
 let rec drop_all_lambdas evd t =
   let open Constr in

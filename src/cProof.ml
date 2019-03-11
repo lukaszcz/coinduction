@@ -91,14 +91,14 @@ let make_full_coproof evd s prfs =
   hlp prfs
 
 (* k - absolute (top-down) index *)
-let subst evd k t s =
+let subst evd n k t s =
   let open Constr in
   let open EConstr in
   map_constr
-    begin fun n s ->
+    begin fun m s ->
       match kind evd s with
-      | Rel i when n - i = k ->
-         shift_binders_up evd n t
+      | Rel i when n + m - i = k ->
+         shift_binders_up evd m t
       | _ ->
          s
     end
@@ -106,28 +106,111 @@ let subst evd k t s =
     s
 
 (* k - absolute (top-down) index *)
+(* n - how deep in the term is t *)
 let rec update_ctx evd k n t ctx =
   match ctx with
   | [] -> []
   | (j, _, _) :: ctx1 when j = k ->
      (j, n, t) :: update_ctx evd k n t ctx1
   | (j, m, s) :: ctx1 ->
-     (j, n, subst evd k t (shift_binders_up evd (n - m) s)) :: update_ctx evd k n t ctx1
+     assert (n >= m);
+     (j, n, subst evd n k t (shift_binders_up evd (n - m) s)) :: update_ctx evd k n t ctx1
 
-let skip_cases extract evd n ctx tctx t cont =
+let fix_ctx evd n args lams ctx =
   let open Constr in
   let open EConstr in
-  let rec skip b_start n j ctx tctx t =
-    let combine m ci (f : EConstr.t array -> EConstr.t -> EConstr.t) branches ret value =
+  let rec hlp m args lams ctx =
+    match args, lams with
+    | arg :: args1, lam :: lams1 ->
+       begin
+         let ctx =
+           match kind evd arg with
+           | Rel i ->
+              update_ctx evd (n - i) (n + m + 1) (mkRel 1) ctx
+           | App (eqprf, _) ->
+              begin (* Assume this is an equality proof *)
+                match kind evd lam with
+                | App (eq, [| _; left; right |]) ->
+                   begin (* TODO: check if eq is eq *)
+                     match kind evd right with
+                     | Rel i ->
+                        update_ctx evd (n + m - i) (n + m) left ctx
+                     | _ ->
+                        begin
+                          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd arg));
+                          Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd lam));
+                          Feedback.msg_warning (Pp.str ("unsupported coinductive proof:" ^
+                                                          " type check may fail (1)"));
+                          ctx
+                        end
+                   end
+                | _ ->
+                   begin
+                     Feedback.msg_warning (Pp.str ("unsupported coinductive proof:" ^
+                                                     " type check may fail (2)"));
+                     ctx
+                   end
+              end
+           | _ ->
+              begin
+                Feedback.msg_warning (Pp.str ("unsupported coinductive proof:" ^
+                                                " type check may fail (3)"));
+                ctx
+              end
+         in
+         hlp (m + 1) args1 lams1 ctx
+       end
+    | _ ->
+       ctx
+  in
+  hlp 0 args lams ctx
+
+let skip_cases extract evd copreds n ctx tctx t cont =
+  let open Constr in
+  let open EConstr in
+  let rec skip b_start n rargs ctx tctx t =
+    let j = List.length rargs in
+    let combine m ci (f : EConstr.t array -> EConstr.t -> EConstr.t) branches ret value args =
       let lst1 =
         List.map2
-          begin fun k br ->
-            let (t, i) = drop_lambdas evd (m + k + j) br in
-            let tps = List.rev (List.map snd (take_lambdas evd (m + k + j - i) br)) in
-            skip false (n + m + k + j - i) i ctx (tps @ tctx) t
+          begin fun cnum (k, br) ->
+            let t = drop_lambdas evd (k + m + j) br in
+            let tps = List.map snd (take_lambdas evd (k + m + j) br) in
+            let len = List.length tps in
+            assert (len >= k);
+            let ctx =
+              match kind evd value with
+              | Rel idx ->
+                 let ty = List.nth tctx (idx - 1) in
+                 let params =
+                   match kind evd ty with
+                   | Ind _ ->
+                      []
+                   | App (_, args1) ->
+                      List.map (shift_binders_up evd (idx + k))
+                        (take ci.ci_npar (Array.to_list args1))
+                   | _ ->
+                      failwith "skip_cases: match on an unsupported (co)inductive type"
+                 in
+                 if List.length params <> ci.ci_npar then
+                   failwith "skip_cases: match on an unsupported (co)inductive type";
+                 update_ctx evd (n - idx) (n + k)
+                   (mkApp (mkConstruct (ci.ci_ind, cnum),
+                           Array.of_list (params @
+                                            List.rev
+                                              (List.map mkRel (range 1 (k + 1))))))
+                   ctx
+              | _ ->
+                 ctx
+            in
+            let rargs = List.map (shift_binders_up evd k) (args @ rargs) in
+            let ctx = fix_ctx evd (n + k) (take (len - k) rargs) (drop k tps) ctx in
+            skip false (n + len)
+              (List.map (shift_binders_up evd (len - k)) (drop (len - k) rargs))
+              ctx ((List.rev tps) @ tctx) t
           end
-          (Array.to_list ci.ci_cstr_ndecls)
-          branches
+          (range 1 (List.length branches + 1))
+          (List.combine (Array.to_list ci.ci_cstr_ndecls) branches)
       in
       let lambdas1 =
         List.map2 (fun k -> take_lambdas evd (m + k + j))
@@ -135,6 +218,7 @@ let skip_cases extract evd n ctx tctx t cont =
       in
       let lambdas2 = take_all_lambdas evd ret in
       let k = List.length lambdas2 in
+      let ret0 = drop_all_lambdas evd ret in
       let retargs =
         match kind evd value with
         | Rel i ->
@@ -142,7 +226,10 @@ let skip_cases extract evd n ctx tctx t cont =
              assert (n = List.length tctx);
              let ty = List.nth tctx (i - 1) in
              match kind evd ty with
+             | Ind _ ->
+                []
              | App (c, args) ->
+                (* drop the parameters and shift binders *)
                 List.map (shift_binders_up evd i)
                   (drop (Array.length args - k + 1) (Array.to_list args))
              | _ ->
@@ -152,18 +239,21 @@ let skip_cases extract evd n ctx tctx t cont =
       in
       let retargs = retargs @ [ value ] in
       assert (List.length retargs = k);
-      let ret0 = drop_all_lambdas evd ret in
-      let peek_needed = rel_occurs evd ret0 (range 1 (k + 1)) in
-      let prods = take_prods evd m ret0 in
-      let ret0 = drop_prods evd m ret0 in
+      let prods = take_prods evd (m + j) ret0 in
+      let ret0 = drop_prods evd (m + j) ret0 in
+      let len = List.length prods in
       let ctx =
         match kind evd value with
-        | Rel i -> update_ctx evd (n - i) (n + k) (mkRel 1) ctx
+        | Rel i -> assert (n >= i); update_ctx evd (n - i) (n + k) (mkRel 1) ctx
         | _ -> ctx
       in
-      let lst2 = extract retargs peek_needed (peek_needed && b_start) n m k ctx ret0 in
-      let len = List.length (List.hd lst1) in
-      assert (List.length lst2 = len);
+      let ctx =
+        fix_ctx evd (n + k)
+          (List.map (shift_binders_up evd k) (take len (args @ rargs)))
+          (List.map snd prods) ctx
+      in
+      let lst2 = extract retargs b_start n len k ctx ret0 in
+      assert (List.length lst2 = List.length copreds);
       let rec hlp lst1 lst2 len acc =
         if len = 0 then
           List.rev acc
@@ -176,35 +266,50 @@ let skip_cases extract evd n ctx tctx t cont =
             List.hd lst2
               begin fun h ->
                 let ret2 = close mkLambda lambdas2 (close mkProd prods h) in
-                if k > 0 then
-                  f branches2 ret2
-                else
-                  f branches2 ret2
+                f branches2 ret2
               end
           in
           hlp (List.map (List.tl) lst1) (List.tl lst2) (len - 1) ((p, case2) :: acc)
       in
-      hlp lst1 lst2 len []
+      if lst1 = [] then
+        List.map2
+          begin fun p g ->
+            let case2 =
+              g begin fun h ->
+                  let ret2 = close mkLambda lambdas2 (close mkProd prods h) in
+                  f [| |] ret2
+                end
+            in
+            (p, case2)
+          end
+          (List.map fst copreds)
+          lst2
+      else
+        begin
+          let len = List.length (List.hd lst1) in
+          assert (List.length lst2 = len);
+          hlp lst1 lst2 len []
+        end
     in
     match kind evd t with
     | Case (ci, ret, value, branches) ->
        combine 0 ci
          (fun br ret -> mkCase (ci, ret, value, br))
-         (Array.to_list branches) ret value
+         (Array.to_list branches) ret value []
     | App (c, args) ->
        begin
          match kind evd c with
          | Case (ci, ret, value, branches) ->
             combine (Array.length args) ci
               (fun br ret -> mkApp (mkCase (ci, ret, value, br), args))
-              (Array.to_list branches) ret value
+              (Array.to_list branches) ret value (Array.to_list args)
          | _ ->
             cont tctx n t
        end
     | _ ->
        cont tctx n t
   in
-  skip true n 0 ctx tctx t
+  skip true n [] ctx tctx t
 
 let make_ch_prf evd n p i ctx =
   let open EConstr in
@@ -217,7 +322,10 @@ let translate_proof stmt copreds cohyps evd ty prf =
   let open EConstr in
   let ind_names = List.map (fun (_, cop) -> cop.cop_name) copreds in
   let p = List.length ind_names in
-  let g_ind_assoc = List.map (fun cp -> (get_canonical_ind_name (get_green_name (snd cp) (snd cp).cop_name), cp)) copreds
+  let g_ind_assoc =
+    List.map
+      (fun cp -> (get_canonical_ind_name (get_green_name (snd cp) (snd cp).cop_name), cp))
+      copreds
   in
   let is_g_ind ind = List.mem_assoc (get_ind_name ind) g_ind_assoc in
   let fix_g_ind ind args f =
@@ -333,6 +441,17 @@ let translate_proof stmt copreds cohyps evd ty prf =
                  in
                  let tyargs1 = fix_g_args ind tyargs
                  in
+                 let peek_needed =
+                   peek_needed &&
+                     List.fold_left
+                       begin fun b (i, j, t) ->
+                         match kind evd t with
+                         | Rel k when j - k = i -> b
+                         | _ -> true
+                       end
+                       false
+                       ctx
+                 in
                  let pr =
                    if peek_needed then
                      mkApp (get_constr (CPeek.get_peek_name cop.cop_name),
@@ -376,7 +495,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
                          let ret =
                            subst_retargs (shift_binders_down evd m (mkLambda (na2, ty2, y)))
                          in
-                         mkApp (get_constr "eq_ind",
+                         mkApp (get_constr "eq_rect",
                                 [| ty0;
                                    mkApp (get_constr (CPeek.get_peek_name cop.cop_name),
                                           Array.of_list (tyargs0 @ [pr0]));
@@ -403,10 +522,10 @@ let translate_proof stmt copreds cohyps evd ty prf =
   let rec extract_proofs ctx tctx n s t =
     let skip =
       skip_cases
-        begin fun retargs peek_needed peek_eq_needed n m k ctx ->
-          extract_types (fun x -> x) n retargs peek_needed peek_eq_needed m k ctx (n + k + m) s
+        begin fun retargs peek_eq_needed n m k ctx ->
+          extract_types (fun x -> x) n retargs true peek_eq_needed m k ctx (n + k + m) s
         end
-        evd n ctx tctx t
+        evd (CStmt.get_copreds s) n ctx tctx t
     in
     match s with
     | SProd (na, ty, body) ->
@@ -483,6 +602,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
       | _ ->
          failwith "can't translate the proof: bad prefix"
   in
+  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf));
   let prf' = CNorm.norm evd prf
   in
   Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf'));
