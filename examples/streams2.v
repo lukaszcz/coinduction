@@ -42,11 +42,11 @@ CoFixpoint enumerate (n : nat) : Stream nat :=
 CoFixpoint map (f : nat -> nat) s : Stream nat :=
   match s with cons n s' => cons (f n) (map f s') end.
 
-CoInduction example : forall n, EqSt (enumerate n) (cons n (map S (enumerate n))).
+CoInduction example : forall n, (enumerate n) == (cons n (map S (enumerate n))).
 Proof.
   intros.
-  rewrite sunf_eq at 1; simpl.
-  (* pattern (enumerate n) at 1; rewrite sunf_eq; simpl. *)
+  (* rewrite sunf_eq at 1; simpl. *)
+  pattern (enumerate n) at 1; rewrite sunf_eq; simpl.
   constructor.
   rewrite (sunf_eq (enumerate n)); simpl.
   rewrite (sunf_eq (map _ _)); simpl.

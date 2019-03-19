@@ -17,15 +17,12 @@ let norm_head_delta evd t =
        mkCase (ci, ret, value, Array.map hlp branches)
     | App (c, args) ->
        mkApp (hlp c, args)
-    | Const _ ->
-       let t' = Reductionops.whd_delta (Global.env ()) evd t in
-       if t <> t' then
-         begin
-           progress := true;
-           t'
-         end
-       else
-         t
+    | Const (c, _) ->
+       begin
+         match Global.body_of_constant c with
+         | Some b -> progress := true; EConstr.of_constr (fst b)
+         | None -> t
+       end
     | _ ->
        t
   in
