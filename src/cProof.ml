@@ -253,7 +253,7 @@ let skip_cases extract evd copreds n ctx tctx t cont =
                | Ind _ ->
                   ctx
                | App (c, args1) ->
-                (* drop the parameters *)
+                  (* drop the parameters *)
                   let tyargs = drop (Array.length args1 - k + 1) (Array.to_list args1) in
                   List.fold_left
                     begin fun ctx (l, argty) ->

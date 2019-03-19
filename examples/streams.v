@@ -22,6 +22,19 @@ Qed.
 
 Print lem_eq2.
 
+CoInduction lem_sym : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt s2 s1.
+Proof.
+  ccrush.
+Qed.
+
+CoInduction lem_trans : forall (A : Type) (s1 s2 s3 : Stream A), EqSt s1 s2 -> EqSt s2 s3 -> EqSt s1 s3.
+Proof.
+  intros A s1 s2 s3 H1 H2.
+  inversion_clear H1.
+  inversion_clear H2.
+  ccrush.
+Qed.
+
 CoFixpoint plusone s := match s with Cons x t => Cons (x + 1) (plusone t) end.
 CoFixpoint ones := Cons 1 ones.
 CoFixpoint plus s1 s2 := match s1, s2 with Cons x1 t1, Cons x2 t2 => Cons (x1 + x2) (plus t1 t2) end.
