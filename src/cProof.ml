@@ -192,12 +192,18 @@ let skip_cases extract evd copreds n ctx tctx t cont =
                  in
                  if List.length params <> ci.ci_npar then
                    failwith "skip_cases: match on an unsupported (co)inductive type";
-                 update_ctx evd (n - idx) (n + k)
-                   (mkApp (mkConstruct (ci.ci_ind, cnum),
-                           Array.of_list (params @
-                                            List.rev
-                                              (List.map mkRel (range 1 (k + 1))))))
-                   ctx
+                 let ctx =
+                   update_ctx evd (n - idx) (n + k)
+                     (mkApp (mkConstruct (ci.ci_ind, cnum),
+                             Array.of_list (params @
+                                              List.rev
+                                                (List.map mkRel (range 1 (k + 1))))))
+                     ctx
+                 in
+                 (* TODO: fix ctx by inspecting the arguments of the
+                    coinductive type in the target of the type of the
+                    constructor *)
+                 ctx
               | _ ->
                  ctx
             in
