@@ -1007,7 +1007,7 @@ with doyelles defs n :=
                 | [ x : ?T |- _ ] =>
                   notProp T; ydestruct x; unfolding defs; doyelles defs k
                 | [ H : ?T |- _ ] =>
-                  isPropAtom T; destruct H; try subst; unfolding defs; doyelles defs k
+                  isPropAtom T; inversion_clear H; unfolding defs; doyelles defs k
                 | [ |- ?A = ?B ] =>
                   progress (try ydestruct A; try ydestruct B);
                   unfolding defs;

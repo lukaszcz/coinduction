@@ -22,8 +22,14 @@ Qed.
 
 CoInduction lem_trans : forall {A : Type} (s1 s2 s3 : Stream A), s1 == s2 -> s2 == s3 -> s1 == s3.
 Proof.
+  destruct 1; ccrush.
+Qed.
+
+Lemma lem_trans_2 : forall {A : Type} (s1 s2 s3 : Stream A), s1 == s2 -> s2 == s3 -> s1 == s3.
+Proof.
+  cofix CH.
   intros A s1 s2 s3 H1 H2.
-  destruct H1; inversion H2; ccrush.
+  destruct H1; inversion H2; constructor; eauto.
 Qed.
 
 Definition sunf {A} (s : Stream A) :=
