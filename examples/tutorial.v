@@ -70,12 +70,7 @@ CoInductive Peak : term -> term -> term -> Set :=
 
 CoInduction lem_peak : forall s t t', s ==> t -> s ==> t' -> Peak s t t'.
 Proof.
-  intros s t t' H1 H2.
-  destruct H1.
-  - destruct H2; pose lem_red_refl; constructor; eauto.
-  - inversion_clear H2; constructor; eauto.
-  - inversion_clear H2; constructor; eauto.
-  - inversion_clear H2; constructor; eauto.
+  destruct 1; inversion_clear 1; constructor; eauto.
 Qed.
 
 CoInduction lem_peak_rev : forall s t t', Peak s t t' -> (s ==> t) * (s ==> t').
@@ -100,14 +95,11 @@ Proof.
 Qed.
 
 CoInduction lem_confl : forall s t t', Peak s t t' -> { s' & (t ==> s') * (t' ==> s') }.
-Proof.
-  intros s t t' H.
-  inversion_clear H.
+Proof. intros s t t' H. inversion_clear H.
   - ccrush.
   - generalize (CH s0 t0 t'0 H0); intro.
     simp_hyps; eexists; split; constructor; eauto.
-  - generalize (CH s0 s1 s2 H0); intro.
-    generalize (CH t0 t1 t2 H1); intro.
+  - generalize (CH s0 s1 s2 H0); generalize (CH t0 t1 t2 H1); intros.
     simp_hyps; eexists; split; constructor; eauto.
   - generalize (CH s0 s' t1 H0); intro.
     generalize (CH s0 s' t2 H1); intro.
