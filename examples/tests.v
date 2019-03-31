@@ -179,6 +179,78 @@ Qed.
 
 Print lem_geq_2.
 
+CoInductive I : Set :=
+| c : I -> I.
+
+CoInductive R : I -> Prop :=
+| r : forall x, R x -> R (c x).
+
+CoInductive S : I -> Set :=
+| s : forall x, S x -> S (c x).
+
+CoInduction lem_eex : forall x : I, exists y, R y.
+Proof.
+  intro x.
+  destruct x.
+  destruct (CH x) as [y H].
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.
+
+CoInduction lem_eex_2 : forall x : I, exists y, R y.
+Proof.
+  intro x.
+  destruct x.
+  destruct x.
+  destruct (CH (c x)) as [y H].
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.
+
+CoInduction lem_eex_3 : forall x : I, S x -> exists y, R y.
+Proof.
+  intros x H.
+  destruct H.
+  destruct (CH x) as [y H1].
+  assumption.
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.
+
+CoInduction lem_eex_4 : forall (x1 x2 : I), S x1 -> S x2 -> exists y, R y.
+Proof.
+  intros x1 x2 H1 H2.
+  inversion_clear H1.
+  inversion_clear H2.
+  destruct (CH x x0 H H0) as [y HH].
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.
+
+
+Inductive term : Set :=
+| var : nat -> term
+| app : term -> term -> term.
+
+CoInductive exteq : term -> term -> Prop :=
+| app_eq : forall t s, (forall q, exteq (app t q) (app s q)) -> exteq t s.
+
+Lemma lem_eeq : forall t, exteq t t.
+Proof.
+  coinduction.
+Qed.
+
+CoInduction lem_eeq_2 : forall t, exteq t t.
+Proof.
+  ccrush.
+Qed.
+
+(* The following don't work with the current version of the plugin *)
+
 CoInduction lem_geq_3 : forall s1 s2, GeqSt2 s1 s2 -> exists s, GeqSt s1 s /\ GeqSt s s2.
 Proof.
   intros s1 s2 H.
@@ -187,22 +259,56 @@ Qed.
 
 Print lem_geq_3.
 
-(*
-CoInductive MinusSt : Stream nat -> Stream nat -> Stream nat -> Set :=
-| minus_st : forall x y s1 s2 s3, MinusSt s1 s2 s3 ->
-                                  MinusSt (Cons x s1) (Cons y s2) (Cons (x - y) s3).
-
-Require Import Omega.
-
-CoInduction lem_minus : forall s1 s2 s3, GeqSt2 s1 s2 -> MinusSt s1 s2 s3 -> exists s, PlusSt s3 s s1.
+CoInduction lem_eex_5 : forall (x1 x2 : I), S x1 -> S x2 -> exists y, R y.
 Proof.
-  intros s1 s2 s3 H1 H2.
-  inversion H1 as [x y t1 t2 H0]; subst.
-  inversion_clear H2 as [x y t1 t2 t3 H0].
-  generalize (CH t1 t2 t3 H0); intro HH.
-  destruct HH as [s HH1].
-  exists (Cons__g Stream__r nat (y - (y - x)) s).
-  ccrush.
-Qed. *)
+  intros x1 x2 H1 H2.
+  destruct H1 as [ x1 H1 ].
+  destruct H2 as [ x2 H2 ].
+  destruct (CH x1 x2 H1 H2) as [y HH].
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.
 
-(* Set Printing All. *)
+Check (let
+   cofix H (x1 x2 : I) (H1 : S x1) (H2 : S x2) : I :=
+     match H1 with
+     | s x3 H3 => match H2 with
+                  | s x4 H4 => c (H x3 x4 H3 H4)
+                  end
+     end in
+ let
+   cofix H0 (x1 x2 : I) (H1 : S x1) (H2 : S x2) : R (H x1 x2 H1 H2) :=
+     eq_rect (peek__I (H x1 x2 H1 H2)) (fun y : I => R y)
+       match H1 as s in (S i) return (R (peek__I (H i x2 s H2))) with
+       | s x3 H3 =>
+           match H2 as s0 in (S i) return (R (peek__I (H (c x3) i (s x3 H3) s0))) with
+           | s x4 H4 => r (H x3 x4 H3 H4) (H0 x3 x4 H3 H4)
+           end
+       end (H x1 x2 H1 H2) (peek_eq__I (H x1 x2 H1 H2)) in
+ fun (x1 x2 : I) (H1 : S x1) (H2 : S x2) => ex_intro (fun y : I => R y) (H x1 x2 H1 H2) (H0 x1 x2 H1 H2)).
+
+
+CoInductive Q : I -> I -> Prop :=
+| q : forall x y, Q x y -> Q x (c y).
+
+Check (let cofix H (x : I) : I := match x with
+                            | c _ => c (H x)
+                            end in
+ let
+   cofix H0 (x : I) : Q x (H x) :=
+     eq_rect (peek__I (H x)) (fun y : I => Q x y)
+       match x as x0 return (Q x0 (peek__I (H x0))) with
+       | c x0 => q (c x0) (H (c x0)) (H0 (c x0))
+       end (H x) (peek_eq__I (H x)) in
+ fun x : I => ex_intro (fun y : I => Q x y) (H x) (H0 x)).
+
+CoInduction lem_eex_3 : forall x : I, exists y, Q x y.
+Proof.
+  intro x.
+  refine (match x as x0 return (exists y : I__g I__r, Q__g__01 I__r Q__r__01 x y) with c x0 => _ end).
+  destruct (CH x) as [y H].
+  exists (c__g I__r y).
+  constructor.
+  assumption.
+Qed.

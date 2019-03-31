@@ -133,3 +133,22 @@ Proof.
   rewrite lem_merge.
   constructor; ccrush.
 Qed.
+
+CoFixpoint merge2 {A : Type} (s1 s2 : Stream A) :=
+  match s1 with cons x s1' => cons x (merge2 s2 s1') end.
+
+Lemma lem_merge2 :
+  forall A x (s1 s2 : Stream A), merge2 (cons x s1) s2 = cons x (merge2 s2 s1).
+Proof.
+  peek_eq.
+Qed.
+
+CoInduction lem_merge2_split : forall {A} (s : Stream A), merge2 (split1 s) (split2 s) == s.
+Proof.
+  destruct s as [a s].
+  destruct s as [b s].
+  rewrite lem_split1.
+  rewrite lem_split2.
+  do 2 rewrite lem_merge2.
+  constructor; ccrush.
+Qed.
