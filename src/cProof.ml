@@ -634,8 +634,8 @@ let translate_proof stmt copreds cohyps evd ty prf =
   in
   let prf' = CNorm.norm evd prf
   in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf'));
+  (* Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd prf')); *)
   let r = hlp 0 prf'
   in
-  Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd r));
+  (* Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd r)); *)
   (evd, r)

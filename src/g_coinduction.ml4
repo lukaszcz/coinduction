@@ -64,8 +64,45 @@ let do_coinduction id cexpr =
 
 (***************************************************************************************)
 
+let do_declare_peek id =
+  let env = Global.env () in
+  let evd = Evd.from_env env in
+  CPeek.declare_peek evd (Id.to_string id)
+
+let do_rewrite_peek ty =
+  Proofview.Goal.enter
+    begin fun gl ->
+      let env = Proofview.Goal.env gl in
+      let evd = Proofview.Goal.sigma gl in
+      let open Constr in
+      let open EConstr in
+      let ind =
+        match kind evd ty with
+        | Ind (ind, _) -> ind
+        | App(a, _) ->
+           begin
+             match kind evd a with
+             | Ind(ind, _) -> ind
+             | _ -> failwith "rewrite_peek: not a coinductive type"
+           end
+        | _ -> failwith "rewrite_peek: not a coinductive type"
+      in
+      let peek = CUtils.get_constr (CPeek.get_peek_eq_name (CUtils.get_ind_name ind)) in
+      Equality.rewriteRL peek
+    end
+
+(***************************************************************************************)
+
 let classify_proof_start_cmd _ = Vernacexpr.(VtStartProof ("Classic",Doesn'tGuaranteeOpacity,[]),VtLater)
 
 VERNAC COMMAND EXTEND Coinduction_cmd CLASSIFIED BY classify_proof_start_cmd
 | [ "CoInduction" ident(id) ":" lconstr(t) ] -> [ do_coinduction id t ]
+END
+
+VERNAC COMMAND EXTEND Coinduction_declare_peek_cmd CLASSIFIED AS SIDEFF
+| [ "Declare_peek" ident(id) ] -> [ do_declare_peek id ]
+END
+
+TACTIC EXTEND Coinduction_peek_tac
+| [ "rewrite_peek" lconstr(t) ] -> [ do_rewrite_peek t ]
 END

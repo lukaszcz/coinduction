@@ -32,27 +32,4 @@ Proof.
   destruct H1; inversion H2; constructor; eauto.
 Qed.
 
-Definition sunf {A} (s : Stream A) :=
-  match s with cons n s' => cons n s' end.
-
-Lemma sunf_eq : forall {A} (s : Stream A), s = sunf s.
-Proof.
-  destruct s; auto.
-Qed.
-
-CoFixpoint enumerate (n : nat) : Stream nat :=
-  cons n (enumerate (S n)).
-
-CoFixpoint map (f : nat -> nat) s : Stream nat :=
-  match s with cons n s' => cons (f n) (map f s') end.
-
-CoInduction example : forall n, (enumerate n) == (cons n (map S (enumerate n))).
-Proof.
-  intros.
-  (* rewrite sunf_eq at 1; simpl. *)
-  pattern (enumerate n) at 1; rewrite sunf_eq; simpl.
-  constructor.
-  rewrite (sunf_eq (enumerate n)); simpl.
-  rewrite (sunf_eq (map _ _)); simpl.
-  apply CH.
-Qed.
+Declare_peek Stream.
