@@ -47,7 +47,7 @@ let do_coinduction id cexpr =
   in
   let terminator = Proof_global.make_terminator terminator in
   let kind = Decl_kinds.(Global, Flags.is_universe_polymorphism(), DefinitionBody Definition) in
-  Proof_global.start_proof evd (id_app id "ᶜ") kind [(env, ty1)] terminator;
+  Proof_global.start_proof evd (id_app id "ᶜ") kind [(Global.env (), ty1)] terminator;
   let p = List.length copreds in
   let tac =
     let rec hlp n =
@@ -56,10 +56,10 @@ let do_coinduction id cexpr =
       else
         Proofview.tclTHEN Tactics.intro (hlp (n - 1))
     in
-    hlp (2 * p)
+    hlp (3 * p)
   in
   ignore (Proof_global.with_current_proof begin fun _ prf ->
-    Proof.run_tactic env tac prf
+     Proof.run_tactic (Global.env ()) tac prf
   end)
 
 (***************************************************************************************)
@@ -72,7 +72,6 @@ let do_declare_peek id =
 let do_rewrite_peek ty =
   Proofview.Goal.enter
     begin fun gl ->
-      let env = Proofview.Goal.env gl in
       let evd = Proofview.Goal.sigma gl in
       let open Constr in
       let open EConstr in

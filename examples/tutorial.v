@@ -95,7 +95,9 @@ Proof.
 Qed.
 
 CoInduction lem_confl : forall s t t', Peak s t t' -> { s' & (t ==> s') * (t' ==> s') }.
-Proof. intros s t t' H. inversion_clear H.
+Proof.
+  intros s t t' H.
+  inversion_clear H.
   - ccrush.
   - generalize (CH s0 t0 t'0 H0); intro.
     simp_hyps; eexists; split; constructor; eauto.

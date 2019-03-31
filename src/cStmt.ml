@@ -196,7 +196,7 @@ let make_ch_red_cop m n p cop coargs =
       end
       coargs
   in
-  mkApp (mkRel (n + m + m), Array.of_list args)
+  mkApp (mkRel (n + m + m + m), Array.of_list args)
 
 let fix_rels evd n =
   let open Constr in
@@ -269,20 +269,25 @@ let make_red k =
     mkApp (mkRel (n + k - p), Array.of_list args)
   end
 
+let make_green_cop k p cop args =
+  let open EConstr in
+  let args =
+    List.map (fun idx -> mkRel (k - idx)) cop.cop_ex_arg_idxs @
+    [ mkRel (k - p) ] @
+    args
+  in
+  mkApp (get_constr (get_green_name cop cop.cop_name), Array.of_list args)
+
 let make_green k =
   stmt_to_constr begin fun n p cop coargs ->
     let open EConstr in
-    let args =
-      List.map (fun idx -> mkRel (n + k - idx)) cop.cop_ex_arg_idxs @
-      [ mkRel (n + k - p) ] @
-      List.map
-        begin function
-        | ATerm t -> t
-        | AEx i -> mkRel i
-        end
-        coargs
-    in
-    mkApp (get_constr (get_green_name cop cop.cop_name), Array.of_list args)
+    make_green_cop (n + k) p cop
+      (List.map
+         begin function
+           | ATerm t -> t
+           | AEx i -> mkRel i
+         end
+         coargs)
   end
 
 let get_red_type evd p cop =
@@ -351,6 +356,34 @@ let fix_ex_arg_inj_args evd p cop m k typeargs args2 =
   in
   hlp 0 args2 cop.cop_ex_args (List.map snd typeargs) cop.cop_ex_arg_idxs
 
+let fix_injg_typeargs evd k copreds cop typeargs =
+  let rec hlp n ex_args tyargs idxs =
+    match ex_args, tyargs with
+    | arg :: t1, ty :: t2 ->
+       if arg <> "" then
+         let p2 = List.hd idxs in
+         let cop2 = List.nth copreds p2 in
+         let open Constr in
+         let open EConstr in
+         let ty2 =
+           match kind evd ty with
+           | Ind (_) ->
+              make_green_cop (k + n) p2 cop2 []
+           | App (_, args) ->
+              make_green_cop (k + n) p2 cop2 (Array.to_list args)
+           | _ ->
+              failwith "unsupported coinductive type (2)"
+         in
+         ty2 :: hlp (n + 1) t1 t2 (List.tl idxs)
+       else
+         ty :: hlp (n + 1) t1 t2 idxs
+    | _ ->
+       []
+  in
+  List.combine
+    (List.map fst typeargs)
+    (hlp 0 cop.cop_ex_args (List.map snd typeargs) cop.cop_ex_arg_idxs)
+
 let translate_statement evd t =
   let open EConstr in
   let fix_ctx = List.map (fun (x, y) -> (Name.mk_name (string_to_id x), y))
@@ -380,10 +413,27 @@ let translate_statement evd t =
       end
       copreds
   in
+  let injections2 =
+    List.map
+      begin fun (p, cop) ->
+        let typeargs0 = get_inductive_typeargs evd (get_inductive cop.cop_name) in
+        let typeargs = fix_injg_typeargs evd (2 * m + p) (List.map snd copreds) cop typeargs0 in
+        let k = List.length typeargs in
+        let args1_l = List.rev (List.map mkRel (range 1 (k + 1))) in
+        let args2_l = List.rev (List.map mkRel (range 2 (k + 2))) in
+        let args2 = Array.of_list (fix_ex_arg_inj_args evd p cop m k typeargs0 args2_l) in
+        (get_red_name cop cop.cop_name ^ "__injg",
+         close mkProd typeargs (mkProd (Name.Anonymous,
+                                        make_green_cop (m + m + k + p) p cop args1_l,
+                                        mkApp (mkRel (k + 1 + m + m), args2))))
+      end
+      copreds
+  in
   let result =
     close mkProd (fix_ctx red_copred_decls)
       (close mkProd (fix_ctx injections)
-         (mkProd (Name.Anonymous, make_red (m + m) stmt, make_green (m + m + 1) stmt)))
+         (close mkProd (fix_ctx injections2)
+            (mkProd (Name.Anonymous, make_red (m + m + m) stmt, make_green (m + m + m + 1) stmt))))
   in
   let cohyps = make_coind_hyps evd m stmt
   in

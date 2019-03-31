@@ -131,9 +131,5 @@ Proof.
   rewrite lem_split1.
   rewrite lem_split2.
   rewrite lem_merge.
-  Print EqSt__g.
-  constructor.
-  eauto.
-  rewrite lem_merge.
-  ccrush.
+  constructor; ccrush.
 Qed.

@@ -343,7 +343,7 @@ let skip_cases extract evd copreds n ctx tctx t cont =
 
 let make_ch_prf evd n p i ctx =
   let open EConstr in
-  mkApp (mkRel (n + 3 * p - i),
+  mkApp (mkRel (n + 4 * p - i),
          Array.of_list (List.rev (List.map (fun (_, k, t) ->
                                       shift_binders_up evd (n - k) t) ctx)))
 
@@ -394,14 +394,17 @@ let translate_proof stmt copreds cohyps evd ty prf =
          begin fun m t ->
            match kind evd t with
            | Rel i when i > m + k1 && i <= m + k1 + p ->
-              (* Rel points at an injection *)
+              (* Rel points at a green injection *)
               List.nth injs (m + k1 + p - i)
            | Rel i when i > m + k1 + p && i <= m + k1 + 2 * p ->
-              (* Rel points at a red parameter *)
-              mkInd (get_inductive (List.nth ind_names (m + k1 + 2 * p - i)))
+              (* Rel points at a red injection *)
+              List.nth injs (m + k1 + 2 * p - i)
            | Rel i when i > m + k1 + 2 * p && i <= m + k1 + 3 * p ->
+              (* Rel points at a red parameter *)
+              mkInd (get_inductive (List.nth ind_names (m + k1 + 3 * p - i)))
+           | Rel i when i > m + k1 + 3 * p && i <= m + k1 + 4 * p ->
               (* Rel points at a (unfixed) coinductive hypothesis *)
-              let q = m + k1 + 3 * p - i in
+              let q = m + k1 + 4 * p - i in
               mkRel (m + k2 - q)
            | App (c, args) ->
               begin
@@ -507,7 +510,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
                        let y = fy id in
                        if rel_occurs evd y (range 1 (m + k + 1)) then
                          let pr0 =
-                           mkApp (mkRel (n0 + 3 * p - i),
+                           mkApp (mkRel (n0 + 4 * p - i),
                                   Array.of_list
                                     (List.rev (List.map
                                                  (fun (j, _, _) -> mkRel (n0 - j))
@@ -599,12 +602,12 @@ let translate_proof stmt copreds cohyps evd ty prf =
        end
   in
   let rec hlp m t =
-    if m = 2 * p + 1 then
+    if m = 3 * p + 1 then
       begin
         if p = 1 then
           mkCoFix (0, ([| Name.Anonymous |], [| ty |], [| fix_proof 1 1 evd t |]))
         else
-          let ch = make_coproof evd stmt (List.map (fun i n -> mkRel (n + 3 * p - i)) (range 0 p))
+          let ch = make_coproof evd stmt (List.map (fun i n -> mkRel (n + 4 * p - i)) (range 0 p))
           in
           let t2 = CNorm.norm evd (mkApp (mkLambda (Name.Anonymous, ty, t), [| ch |]))
           in
