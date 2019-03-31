@@ -66,21 +66,6 @@ CoInductive EqSt {A : Type} : Stream A -> Stream A -> Prop :=
 
 Notation "A == B" := (EqSt A B) (at level 70).
 
-CoFixpoint enumerate (n : nat) : Stream nat :=
-  cons n (enumerate (S n)).
-
-CoFixpoint map (f : nat -> nat) s : Stream nat :=
-  match s with cons n s' => cons (f n) (map f s') end.
-
-CoInduction example : forall n, enumerate n == cons n (map S (enumerate n)).
-Proof.
-  intros.
-  peek (enumerate n).
-  constructor.
-  peek (map S (cons n (enumerate (S n)))).
-  apply CH.
-Qed.
-
 CoInduction lem_refl : forall {A : Type} (s : Stream A), s == s.
 Proof.
   ccrush.
@@ -151,4 +136,19 @@ Proof.
   rewrite lem_split2.
   do 2 rewrite lem_merge2.
   constructor; ccrush.
+Qed.
+
+CoFixpoint enumerate (n : nat) : Stream nat :=
+  cons n (enumerate (S n)).
+
+CoFixpoint map (f : nat -> nat) s : Stream nat :=
+  match s with cons n s' => cons (f n) (map f s') end.
+
+CoInduction lem_enumerate : forall n, enumerate n == cons n (map S (enumerate n)).
+Proof.
+  intro n.
+  peek (enumerate n).
+  constructor.
+  peek (map S (cons n (enumerate (S n)))).
+  apply CH.
 Qed.
