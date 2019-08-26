@@ -28,3 +28,10 @@ command                          | description
 Some examples are given in the [`examples`](examples) directory. For
 examples with the `peek` and `peek_eq` tactics see
 [`examples/practical.v`](examples/practical.v).
+
+Papers
+------
+
+Łukasz Czajka,
+[First-order guarded coinduction in Coq](https://www.mimuw.edu.pl/~lukaszcz/focoind.pdf),
+ITP 2019
