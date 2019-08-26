@@ -489,6 +489,9 @@ Ltac isplit :=
     | [ H : _ \/ _ |- _ ] => elim H; clear H; intro
     | [ H : (?a +{ ?b }) |- _ ] => elim H; clear H; intro
     | [ H : ({ ?a }+{ ?b }) |- _ ] => elim H; clear H; intro
+    | [ |- prod ?A _ ] =>
+      cut A; [ let H := fresh "H" in
+               intro H; split; [ exact H | idtac ] | idtac ]
     | [ |- context[match ?X with _ => _ end] ] => ydestruct X
     | [ H : context[match ?X with _ => _ end] |- _ ] => ydestruct X
     | [ H : forall (x : ?T1), _ \/ _ |- _ ] =>
