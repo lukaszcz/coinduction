@@ -8,11 +8,11 @@ type coarg =
   | AEx of int (* a variable bound by an existential -- Rel index *)
 
 type stmt =
-    SProd of Name.t * EConstr.t (* type *) * stmt (* body *)
+    SProd of Name.t Context.binder_annot * EConstr.t (* type *) * stmt (* body *)
   | SPred of int (* copred index 0-based *) * copred * coarg list
   | SAnd (* and-like inductive type *) of inductive * stmt list
   | SEx (* exists-like inductive type *) of
-      inductive * Name.t (* variable name *) * stmt (* type *) * stmt (* body *)
+      inductive * Name.t Context.binder_annot (* variable name *) * stmt (* type *) * stmt (* body *)
 
 val map_fold_stmt : (int -> 'a -> stmt -> 'a * stmt) -> 'a -> stmt -> 'a * stmt
 

@@ -32,23 +32,23 @@ val get_ind_name : inductive -> string
 
 val get_ind_nparams : inductive -> int
 
-val close : (Name.t * 'a * 'a -> 'a) -> (Name.t * 'a) list -> 'a -> 'a
+val close : (Name.t Context.binder_annot * 'a * 'a -> 'a) -> (Name.t Context.binder_annot * 'a) list -> 'a -> 'a
 
 val drop_lambdas : Evd.evar_map -> int -> EConstr.t -> EConstr.t
 
-val take_lambdas : Evd.evar_map -> int -> EConstr.t -> (Name.t * EConstr.t) list
+val take_lambdas : Evd.evar_map -> int -> EConstr.t -> (Name.t Context.binder_annot * EConstr.t) list
 
 val drop_prods : Evd.evar_map -> int -> EConstr.t -> EConstr.t
 
-val take_prods : Evd.evar_map -> int -> EConstr.t -> (Name.t * EConstr.t) list
+val take_prods : Evd.evar_map -> int -> EConstr.t -> (Name.t Context.binder_annot * EConstr.t) list
 
 val drop_all_lambdas : Evd.evar_map -> EConstr.t -> EConstr.t
 
-val take_all_lambdas : Evd.evar_map -> EConstr.t -> (Name.t * EConstr.t) list
+val take_all_lambdas : Evd.evar_map -> EConstr.t -> (Name.t Context.binder_annot * EConstr.t) list
 
 val drop_all_prods : Evd.evar_map -> EConstr.t -> EConstr.t
 
-val take_all_prods : Evd.evar_map -> EConstr.t -> (Name.t * EConstr.t) list
+val take_all_prods : Evd.evar_map -> EConstr.t -> (Name.t Context.binder_annot * EConstr.t) list
 
 val map_fold_constr : (int -> 'a -> EConstr.t -> 'a * EConstr.t) ->
                       'a -> Evd.evar_map -> EConstr.t ->
@@ -78,7 +78,7 @@ val is_and_like : inductive -> bool
 
 val is_exists_like : inductive -> bool
 
-val get_inductive_typeargs : Evd.evar_map -> inductive -> (Name.t * EConstr.t) list
+val get_inductive_typeargs : Evd.evar_map -> inductive -> (Name.t Context.binder_annot * EConstr.t) list
 
 val process_inductive : Declarations.mutual_inductive_body -> Entries.mutual_inductive_entry
 

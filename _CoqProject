@@ -13,7 +13,8 @@ src/cStmt.mli
 src/cStmt.ml
 src/cProof.mli
 src/cProof.ml
-src/g_coinduction.ml4
+src/coinduction_main.ml
+src/g_coinduction.mlg
 src/coinduction_plugin.mllib
 theories/Coinduction.v
 theories/Tactics.v

@@ -84,7 +84,7 @@ let make_full_coproof evd s prfs =
   let rec hlp prfs =
     match prfs with
     | (ty, pr) :: tl ->
-       mkLetIn (Name.Anonymous, pr, ty, hlp tl)
+       mkLetIn (Context.make_annot Name.Anonymous Sorts.Relevant, pr, ty, hlp tl)
     | [] ->
        make_coproof evd s (List.map (fun i n -> mkRel (n + p - i)) (range 0 p))
   in
@@ -379,7 +379,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
         let typeargs = get_inductive_typeargs evd (get_inductive name) in
         let m = List.length typeargs in
         let args = Array.of_list (List.rev (List.map mkRel (range 1 (m + 1)))) in
-        close mkLambda typeargs (mkLambda (Name.Anonymous,
+        close mkLambda typeargs (mkLambda (Context.make_annot Name.Anonymous Sorts.Relevant,
                                            mkApp (get_constr name, args),
                                            mkRel 1))
       end
@@ -605,11 +605,11 @@ let translate_proof stmt copreds cohyps evd ty prf =
     if m = 3 * p + 1 then
       begin
         if p = 1 then
-          mkCoFix (0, ([| Name.Anonymous |], [| ty |], [| fix_proof 1 1 evd t |]))
+          mkCoFix (0, ([| Context.make_annot Name.Anonymous Sorts.Relevant |], [| ty |], [| fix_proof 1 1 evd t |]))
         else
           let ch = make_coproof evd stmt (List.map (fun i n -> mkRel (n + 4 * p - i)) (range 0 p))
           in
-          let t2 = CNorm.norm evd (mkApp (mkLambda (Name.Anonymous, ty, t), [| ch |]))
+          let t2 = CNorm.norm evd (mkApp (mkLambda (Context.make_annot Name.Anonymous Sorts.Relevant, ty, t), [| ch |]))
           in
           (* Assumption: all and-like and ex-like constructors in ch
              will be destroyed by normalizing t2; if any are left then
@@ -619,7 +619,7 @@ let translate_proof stmt copreds cohyps evd ty prf =
               begin fun (p, pr) ty ->
                 let ty2 = fix_proof p p evd ty in
                 (ty2,
-                 mkCoFix (0, ([| Name.Anonymous |],
+                 mkCoFix (0, ([| Context.make_annot Name.Anonymous Sorts.Relevant |],
                               [| ty2 |],
                               [| fix_proof 0 (p + 1) evd pr |])))
               end
@@ -641,4 +641,5 @@ let translate_proof stmt copreds cohyps evd ty prf =
   let r = hlp 0 prf'
   in
   (* Feedback.msg_notice (Printer.pr_constr (EConstr.to_constr evd r)); *)
+  let (evd, r) = Typing.solve_evars (Global.env ()) evd r in
   (evd, r)

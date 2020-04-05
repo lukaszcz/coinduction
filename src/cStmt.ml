@@ -12,11 +12,11 @@ type coarg =
   | AEx of int (* a variable bound by an existential -- Rel index *)
 
 type stmt =
-    SProd of Name.t * EConstr.t (* type *) * stmt (* body *)
+    SProd of Name.t Context.binder_annot * EConstr.t (* type *) * stmt (* body *)
   | SPred of int (* copred index 0-based *) * copred * coarg list
   | SAnd (* and-like inductive type *) of inductive * stmt list
   | SEx (* exists-like inductive type *) of
-      inductive * Name.t (* variable name *) * stmt (* type *) * stmt (* body *)
+      inductive * Name.t Context.binder_annot (* variable name *) * stmt (* type *) * stmt (* body *)
 
 let map_fold_stmt (f : int -> 'a -> stmt -> 'a * stmt) acc stmt =
   let rec hlp n acc stmt =
@@ -386,7 +386,7 @@ let fix_injg_typeargs evd k copreds cop typeargs =
 
 let translate_statement evd t =
   let open EConstr in
-  let fix_ctx = List.map (fun (x, y) -> (Name.mk_name (string_to_id x), y))
+  let fix_ctx = List.map (fun (x, y) -> (Context.make_annot (Name.mk_name (string_to_id x)) Sorts.Relevant, y))
   in
   let (evd, stmt) = make_stmt evd t in
   let copreds = get_copreds stmt in
@@ -407,7 +407,7 @@ let translate_statement evd t =
         let args2_l = List.rev (List.map mkRel (range 2 (k + 2))) in
         let args2 = Array.of_list (fix_ex_arg_inj_args evd p cop m k typeargs args2_l) in
         (get_red_name cop cop.cop_name ^ "__inj",
-         close mkProd typeargs (mkProd (Name.Anonymous,
+         close mkProd typeargs (mkProd (Context.make_annot Name.Anonymous Sorts.Relevant,
                                         mkApp (get_constr cop.cop_name, args1),
                                         mkApp (mkRel (k + 1 + m), args2))))
       end
@@ -423,7 +423,7 @@ let translate_statement evd t =
         let args2_l = List.rev (List.map mkRel (range 2 (k + 2))) in
         let args2 = Array.of_list (fix_ex_arg_inj_args evd p cop m k typeargs0 args2_l) in
         (get_red_name cop cop.cop_name ^ "__injg",
-         close mkProd typeargs (mkProd (Name.Anonymous,
+         close mkProd typeargs (mkProd (Context.make_annot Name.Anonymous Sorts.Relevant,
                                         make_green_cop (m + m + k + p) p cop args1_l,
                                         mkApp (mkRel (k + 1 + m + m), args2))))
       end
@@ -433,7 +433,7 @@ let translate_statement evd t =
     close mkProd (fix_ctx red_copred_decls)
       (close mkProd (fix_ctx injections)
          (close mkProd (fix_ctx injections2)
-            (mkProd (Name.Anonymous, make_red (m + m + m) stmt, make_green (m + m + m + 1) stmt))))
+            (mkProd (Context.make_annot Name.Anonymous Sorts.Relevant, make_red (m + m + m) stmt, make_green (m + m + m + 1) stmt))))
   in
   let cohyps = make_coind_hyps evd m stmt
   in

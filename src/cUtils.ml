@@ -1,12 +1,8 @@
 open Util
-open CErrors
-open Context
-open Rel.Declaration
 open Term
 open Names
 open Declarations
 open Entries
-open Globnames
 
 (***************************************************************************************)
 
@@ -66,6 +62,7 @@ let intern_constr env evd cexpr =
   Typing.solve_evars env sigma t
 
 let to_constr r =
+  let open Names.GlobRef in
   match r with
   | VarRef(v) -> EConstr.mkVar v
   | ConstRef(c) -> EConstr.mkConst c
@@ -86,11 +83,12 @@ let get_constr s =
 
 let get_inductive s =
   match get_global s with
-  | IndRef(i) -> i
+  | Names.GlobRef.IndRef(i) -> i
   | _ -> failwith "get_inductive: not an inductive type"
 
 let get_ind_name ind =
-  Libnames.string_of_path (Nametab.path_of_global (Globnames.canonical_gr (IndRef ind)))
+  Libnames.string_of_path (Nametab.path_of_global
+                             (Globnames.canonical_gr (Names.GlobRef.IndRef ind)))
 
 let get_ind_nparams ind =
   let mind = fst (Inductive.lookup_mind_specif (Global.env ()) ind) in
@@ -188,7 +186,8 @@ let map_fold_constr f acc evd t =
       (ac1, Array.of_list (List.rev lst))
     in
     match kind evd t with
-    | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _ ->
+    | Rel _ | Meta _ | Var _ | Sort _ | Const _ |
+        Ind _ | Construct _ | Int _ ->
        f m acc t
     | Cast (ty1,ck,ty2) ->
        let (acc1, ty1') = hlp m acc ty1 in
@@ -252,7 +251,7 @@ let map_fold_constr_ker f acc t =
       (ac1, Array.of_list (List.rev lst))
     in
     match kind t with
-    | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _ ->
+    | Rel _ | Meta _ | Var _ | Sort _ | Const _ | Ind _ | Construct _ | Int _ ->
        f m acc t
     | Cast (ty1,ck,ty2) ->
        let (acc1, ty1') = hlp m acc ty1 in
@@ -472,19 +471,10 @@ let get_inductive_typeargs evd (ind : inductive) =
 
 (* The following contains code from https://github.com/CoqHott/exceptional-tt. *)
 
-let detype_param =
-  function
-  | LocalAssum (Name id, p) -> id, LocalAssumEntry p
-  | LocalDef (Name id, p,_) -> id, LocalDefEntry p
-  | _ -> anomaly (Pp.str "Unnamed inductive local variable.")
-
 (* Replace
-
      Var(y1)..Var(yq):C1..Cq |- Ij:Bj
      Var(y1)..Var(yq):C1..Cq; I1..Ip:B1..Bp |- ci : Ti
-
    by
-
      |- Ij: (y1..yq:C1..Cq)Bj
      I1..Ip:(B1 y1..yq)..(Bp y1..yq) |- ci : (y1..yq:C1..Cq)Ti[Ij:=(Ij y1..yq)]
 *)
@@ -493,7 +483,7 @@ let abstract_inductive nparams inds =
 (* To be sure to be the same as before, should probably be moved to process_inductive *)
   let params' = let (_,arity,_,_,_) = List.hd inds in
                 let (params,_) = decompose_prod_n_assum nparams arity in
-                List.map detype_param params
+                params
   in
   let ind'' =
   List.map
@@ -514,19 +504,16 @@ let refresh_polymorphic_type_of_inductive (_,mip) =
   | RegularArity s -> s.mind_user_arity, false
   | TemplateArity ar ->
     let ctx = List.rev mip.mind_arity_ctxt in
-      mkArity (List.rev ctx, Type ar.template_level), true
+      mkArity (List.rev ctx, Sorts.sort_of_univ ar.template_level), true
 
 let process_inductive mib =
   let nparams = Context.Rel.length mib.mind_params_ctxt in
   let ind_univs = match mib.mind_universes with
-  | Monomorphic_ind ctx -> Monomorphic_ind_entry ctx
-  | Polymorphic_ind auctx ->
-    let uctx = Univ.AUContext.repr auctx in
-    Polymorphic_ind_entry uctx
-  | Cumulative_ind cumi ->
-    let auctx = Univ.ACumulativityInfo.univ_context cumi in
-    let uctx = Univ.AUContext.repr auctx in
-    Cumulative_ind_entry (Univ.CumulativityInfo.from_universe_context uctx)
+  | Monomorphic ctx -> Monomorphic_entry ctx
+  | Polymorphic auctx ->
+     let uctx = Univ.AUContext.repr auctx in
+     let names = Univ.AUContext.names auctx in
+     Polymorphic_entry (names, uctx)
   in
   let map mip =
     let arity, template = refresh_polymorphic_type_of_inductive (mib,mip) in
@@ -538,7 +525,7 @@ let process_inductive mib =
   let inds = Array.map_to_list map mib.mind_packets in
   let (params', inds') = abstract_inductive nparams inds in
   let record = match mib.mind_record with
-    | PrimRecord arr -> Some (Some (Array.map (fun (id, _, _) -> id) arr))
+    | PrimRecord arr -> Some (Some (Array.map (fun (id, _, _, _) -> id) arr))
     | FakeRecord -> Some None
     | NotRecord -> None
   in
@@ -547,30 +534,29 @@ let process_inductive mib =
     mind_entry_params = params';
     mind_entry_inds = inds';
     mind_entry_private = mib.mind_private;
-    mind_entry_universes = ind_univs
+    mind_entry_universes = ind_univs;
+    mind_entry_variance = None
   }
 
-(* The following contains code from https://github.com/ybertot/plugin_tutorials *)
+(* The following contains code from https://github.com/coq/coq/tree/v8.10/doc/plugin_tutorial *)
 
-let edeclare ident (_, poly, _ as k) ~opaque env evd udecl body tyopt imps hook =
-  let sigma = Evd.minimize_universes evd in
+let edeclare ?hook ~ontop ident (_, poly, _ as k) ~opaque sigma udecl body tyopt imps =
+  let sigma = Evd.minimize_universes sigma in
   let body = EConstr.to_constr sigma body in
   let tyopt = Option.map (EConstr.to_constr sigma) tyopt in
   let uvars_fold uvars c =
-    Univ.LSet.union uvars (Univops.universes_of_constr c) in
+    Univ.LSet.union uvars (Vars.universes_of_constr c) in
   let uvars = List.fold_left uvars_fold Univ.LSet.empty
      (Option.List.cons tyopt [body]) in
   let sigma = Evd.restrict_universe_context sigma uvars in
   let univs = Evd.check_univ_decl ~poly sigma udecl in
+  let uctx = Evd.evar_universe_context sigma in
   let ubinders = Evd.universe_binders sigma in
   let ce = Declare.definition_entry ?types:tyopt ~univs body in
-  DeclareDef.declare_definition ident k ce ubinders imps hook
+  let hook_data = Option.map (fun hook -> hook, uctx, []) hook in
+  DeclareDef.declare_definition ~ontop ident k ce ubinders imps ?hook_data
 
-let declare_definition ident ?(opaque = false) evd body =
-  let env = Global.env () in
-  let (evd, body) = Typing.solve_evars env evd body in
-  let k = (Decl_kinds.Global,
-           Flags.is_universe_polymorphism (), Decl_kinds.Definition) in
+let declare_definition name ?(opaque=false) sigma body =
+  let k = (Decl_kinds.Global, true, Decl_kinds.Definition) in
   let udecl = UState.default_univ_decl in
-  let nohook = Lemmas.mk_hook (fun _ x -> x) in
-  ignore (edeclare ident k ~opaque:opaque env evd udecl body None [] nohook)
+  ignore (edeclare ~ontop:None name k ~opaque sigma udecl body None [])

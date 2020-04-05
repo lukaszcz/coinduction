@@ -20,7 +20,7 @@ let norm_head_delta evd t =
     | Const (c, _) ->
        begin
          match Global.body_of_constant c with
-         | Some b -> progress := true; EConstr.of_constr (fst b)
+         | Some (b, _) -> progress := true; EConstr.of_constr b
          | None -> t
        end
     | _ ->

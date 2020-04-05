@@ -334,8 +334,8 @@ let translate_coinductive evd ind ex_args ex_arg_idxs =
         mind_entry_inds = inds2;
         mind_entry_params =
           mind.mind_entry_params @ (* TODO: existential variables in parameters *)
-            (List.rev (List.map (fun (x, y) -> (x, LocalAssumEntry (EConstr.to_constr evd y))) params_red)) @
-            (List.rev (List.map (fun (x, y) -> (Id.of_string x, LocalAssumEntry (EConstr.to_constr evd y))) ex_arg_params));
+            (List.rev (List.map (fun (x, y) -> Context.Rel.Declaration.LocalAssum (Context.make_annot (Name.mk_name x) Sorts.Relevant, EConstr.to_constr evd y)) params_red)) @
+            (List.rev (List.map (fun (x, y) -> Context.Rel.Declaration.LocalAssum (Context.make_annot (Name.mk_name (Id.of_string x)) Sorts.Relevant, EConstr.to_constr evd y)) ex_arg_params));
       }
     in
     ignore (Declare.declare_mind mind2);

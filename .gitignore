@@ -2,6 +2,9 @@
 *.d
 *.glob
 *.vo
+*.vok
+*.vos
+g_*.ml
 *~
 Makefile.coq
 Makefile.coq.bak

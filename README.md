@@ -1,4 +1,4 @@
-Coinduction (dev) plugin for Coq 8.9
+Coinduction (dev) plugin for Coq 8.10
 
 Installation
 ------------
