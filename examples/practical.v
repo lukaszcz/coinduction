@@ -1,4 +1,5 @@
 From Coinduction Require Import Coinduction.
+From Hammer Require Import Tactics.
 
 CoInductive Stream (A : Type) : Type :=
 | cons : A -> Stream A -> Stream A.
@@ -22,7 +23,7 @@ CoInduction lem_lex :
   forall (A : Type) (x y z : Stream A) (R : relation A),
     Transitive R -> Lex R x y -> Lex R y z -> Lex R x z.
 Proof.
-  destruct 2; ccrush.
+  inversion 2; inversion 1; scrush.
 Qed.
 
 CoFixpoint plus s1 s2 :=
@@ -37,7 +38,7 @@ CoInduction lem_monotone :
   forall (s1 s2 t1 t2 : Stream nat),
     Lex lt s1 t1 -> Lex lt s2 t2 -> Lex lt (plus s1 s2) (plus t1 t2).
 Proof.
-  destruct 1, 1; do 2 rewrite lem_plus; ccrush.
+  destruct 1, 1; do 2 rewrite lem_plus; scrush.
 Qed.
 
 (*******************************************************)
@@ -55,7 +56,7 @@ CoInductive LeTy : RecTy -> RecTy -> Prop :=
 
 CoInduction lem_lety_trans : forall x y z, LeTy x y -> LeTy y z -> LeTy x z.
 Proof.
-  destruct 1; ccrush.
+  inversion 1; inversion 1; scrush.
 Qed.
 
 (*******************************************************)
@@ -68,18 +69,18 @@ Notation "A == B" := (EqSt A B) (at level 70).
 
 CoInduction lem_refl : forall {A : Type} (s : Stream A), s == s.
 Proof.
-  ccrush.
+  scrush.
 Qed.
 
 CoInduction lem_sym : forall {A : Type} (s1 s2 : Stream A), s1 == s2 -> s2 == s1.
 Proof.
-  ccrush.
+  inversion 1; scrush.
 Qed.
 
 CoInduction lem_trans :
   forall {A : Type} (s1 s2 s3 : Stream A), s1 == s2 -> s2 == s3 -> s1 == s3.
 Proof.
-  destruct 1; ccrush.
+  inversion 1; inversion 1; scrush.
 Qed.
 
 CoFixpoint split1 {A : Type} (s : Stream A) :=
@@ -116,7 +117,7 @@ Proof.
   rewrite lem_split1.
   rewrite lem_split2.
   rewrite lem_merge.
-  constructor; ccrush.
+  scrush.
 Qed.
 
 CoFixpoint merge2 {A : Type} (s1 s2 : Stream A) :=
@@ -135,7 +136,7 @@ Proof.
   rewrite lem_split1.
   rewrite lem_split2.
   do 2 rewrite lem_merge2.
-  constructor; ccrush.
+  scrush.
 Qed.
 
 CoFixpoint enumerate (n : nat) : Stream nat :=

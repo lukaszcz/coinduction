@@ -17,4 +17,3 @@ src/coinduction_main.ml
 src/g_coinduction.mlg
 src/coinduction_plugin.mllib
 theories/Coinduction.v
-theories/Tactics.v

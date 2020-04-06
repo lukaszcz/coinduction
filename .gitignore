@@ -6,9 +6,13 @@
 *.vos
 g_*.ml
 *~
+.lia.cache
 Makefile.coq
 Makefile.coq.bak
 Makefile.coq.conf
+Makefile.tactics.coq
+Makefile.tactics.coq.bak
+Makefile.tactics.coq.conf
 
 *.annot
 *.cmo

@@ -15,15 +15,17 @@ CoInductive EqLList {A : Type} : LList A -> LList A -> Prop :=
 
 Notation "A == B" := (EqLList A B) (at level 70).
 
+From Hammer Require Import Tactics.
+
 CoInduction lem_refl : forall {A : Type} (s : LList A), s == s.
-Proof. ccrush. Qed.
+Proof. destruct s; sauto. Qed.
 
 CoInduction lem_sym : forall {A : Type} (s1 s2 : LList A), s1 == s2 -> s2 == s1.
-Proof. ccrush. Qed.
+Proof. inversion 1; sauto. Qed.
 
 CoInduction lem_trans :
   forall {A : Type} (s1 s2 s3 : LList A), s1 == s2 -> s2 == s3 -> s1 == s3.
-Proof. destruct 1; ccrush. Qed.
+Proof. destruct 1; sauto. Qed.
 
 CoInductive Infinite {A : Type} : LList A -> Prop :=
 | infcons : forall x s, Infinite s -> Infinite (cons x s).
@@ -40,5 +42,5 @@ Proof.
   intros A s1 s2 H.
   destruct H as [x s].
   peek (append (cons x s) s2).
-  ccrush.
+  scrush.
 Qed.

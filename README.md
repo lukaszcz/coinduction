@@ -19,14 +19,24 @@ Available commands:
 command                          | description
 -------------------------------- | -----------------------------------------------
 `CoInduction`                    |  Starts a coinductive proof of a lemma.
-`ccrush`                         |  A general-purpose automated crush-like tactic.
-`csolve on t`                    |  Performs case analysis on `t` followed by automated proof search.
 `peek t`                         |  Forces a cofixpoint reduction in `t`.
 `peek_eq`                        |  A tactic to automatically prove lemmas about unfoldings of cofixpoint definitions.
 `Declare_peek I`                 |  This command must be invoked before using the `peek` and `peek_eq` tactics with terms having the coinductive type I.
 
 Some examples are given in the [`examples`](examples) directory. For
 examples with the `peek` and `peek_eq` tactics see
+[`examples/practical.v`](examples/practical.v).
+
+To compile the examples you need to install
+[CoqHammer](https://github.com/lukaszcz/coqhammer) reconstruction
+tactics.
+
+Because CoqHammer tactics sometimes perform unnecessary case analysis
+on equality proofs, even for "first-order" statements they
+occasionally produce proofs that do not satify the "weak case
+restriction". In such a case the translation may fail to produce a
+guarded Coq proof. A workaround is to manually perform the needed
+inversions before invoking the automated tactics. See
 [`examples/practical.v`](examples/practical.v).
 
 Papers

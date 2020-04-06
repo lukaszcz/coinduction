@@ -1,4 +1,5 @@
 From Coinduction Require Import Coinduction.
+From Hammer Require Import Tactics.
 
 Open Scope type_scope.
 
@@ -16,12 +17,12 @@ Notation "A == B" := (Eq A B) (at level 70).
 
 CoInduction lem_eq_refl : forall t, t == t.
 Proof.
-  ccrush.
+  destruct t; scrush.
 Qed.
 
 CoInduction lem_eq_sym : forall s t, s == t -> t == s.
 Proof.
-  ccrush.
+  inversion 1; scrush.
 Qed.
 
 CoInduction lem_eq_trans : forall t1 t2 t3, t1 == t2 -> t2 == t3 -> t1 == t3.
@@ -40,12 +41,12 @@ Notation "A ==> B" := (Red A B) (at level 70).
 
 CoInduction lem_red_refl : forall t, t ==> t.
 Proof.
-  ccrush.
+  destruct t; scrush.
 Qed.
 
 CoInduction lem_eq_to_red : forall t1 t2, t1 == t2 -> t1 ==> t2.
 Proof.
-  pose lem_eq_refl; ccrush.
+  pose lem_eq_refl; inversion 1; scrush.
 Qed.
 
 CoInduction lem_red_trans : forall t1 t2 t3, t1 ==> t2 -> t2 ==> t3 -> t1 ==> t3.
@@ -57,7 +58,7 @@ Qed.
 CoInduction lem_red_ex : forall t, { s & t ==> s }.
 Proof.
   intro t.
-  destruct t; pose lem_red_refl; ccrush.
+  destruct t; pose lem_red_refl; scrush.
 Qed.
 
 CoInductive Peak : term -> term -> term -> Set :=
@@ -77,28 +78,27 @@ CoInduction lem_peak_rev : forall s t t', Peak s t t' -> (s ==> t) * (s ==> t').
 Proof.
   intros s t t' H.
   inversion_clear H.
-  - ccrush.
-  - generalize (CH s0 t0 t'0 H0); intro.
-    simp_hyps; split; constructor; eauto.
+  - scrush.
+  - scrush.
   - generalize (CH s0 s1 s2 H0); intro.
     generalize (CH t0 t1 t2 H1); intro.
-    simp_hyps; split; constructor; eauto.
+    scrush.
   - generalize (CH s0 s' t1 H0); intro.
     generalize (CH s0 s' t2 H1); intro.
-    simp_hyps; split; constructor; eauto.
+    scrush.
   - generalize (CH s0 t1 s' H0); intro.
     generalize (CH s0 t2 s' H1); intro.
-    simp_hyps; split; constructor; eauto.
+    scrush.
   - generalize (CH s0 s1 t1 H0); intro.
     generalize (CH s0 s2 t2 H1); intro.
-    simp_hyps; split; constructor; eauto.
+    scrush.
 Qed.
 
 CoInduction lem_confl : forall s t t', Peak s t t' -> { s' & (t ==> s') * (t' ==> s') }.
 Proof.
   intros s t t' H.
   inversion_clear H.
-  - ccrush.
+  - scrush.
   - generalize (CH s0 t0 t'0 H0); intro.
     simp_hyps; eexists; split; constructor; eauto.
   - generalize (CH s0 s1 s2 H0); generalize (CH t0 t1 t2 H1); intros.
@@ -121,47 +121,6 @@ Proof.
   eauto using lem_confl, lem_peak.
 Qed.
 
-(* The following direct proof doesn't work with the current version of
-   the plugin, because it requires two nested dependent eliminations
-   on arguments of the implicit corecursive function *)
-
-(*
-CoInduction lem_red_confl : forall s t t', s ==> t -> s ==> t' -> { s' & (t ==> s') * (t' ==> s') }.
-Proof.
-  intros s t t' H1 H2.
-  destruct H1.
-  - inversion_clear H2; ccrush.
-  - inversion_clear H2.
-    + generalize (CH t t'0 t'1 H1 H); intro HH.
-      destruct HH as [ x [ HH1 HH2 ] ].
-      eexists; split; constructor; eauto.
-    + generalize (CH t t'0 t1 H1 H); intro HH1.
-      generalize (CH t t'0 t2 H1 H0); intro HH2.
-      destruct HH1 as [ x [ X1 X2 ] ].
-      destruct HH2 as [ y [ Y1 Y2 ] ].
-      exists (B__g term__r x y).
-      split; constructor; eauto.
-  - inversion_clear H2.
-    generalize (CH s s' s'0 H1_ H); intro HH1.
-    generalize (CH t t'0 t'1 H1_0 H0); intro HH2.
-    destruct HH1 as [ x [ X1 X2 ] ].
-    destruct HH2 as [ y [ Y1 Y2 ] ].
-    eexists; split; constructor; eauto.
-  - inversion_clear H2.
-    + generalize (CH t t1 t'0 H1_ H); intro HH1.
-      generalize (CH t t2 t'0 H1_0 H); intro HH2.
-      destruct HH1 as [ x [ X1 X2 ] ].
-      destruct HH2 as [ y [ Y1 Y2 ] ].
-      exists (B__g term__r x y).
-      split; constructor; eauto.
-    + generalize (CH t t1 t3 H1_ H); intro HH1.
-      generalize (CH t t2 t4 H1_0 H0); intro HH2.
-      destruct HH1 as [ x [ X1 X2 ] ].
-      destruct HH2 as [ y [ Y1 Y2 ] ].
-      eexists; split; constructor; eauto.
-Qed.
-*)
-
 CoInductive Red0 : term -> term -> Prop :=
 | red0_C : forall i, Red0 (C i) (C i)
 | red0_A : forall t t', Red0 t t' -> Red0 (A t) (A t')
@@ -172,11 +131,5 @@ Notation "A --> B" := (Red0 A B) (at level 70).
 
 CoInduction lem_red0_refl : forall t, t --> t.
 Proof.
-  ccrush.
-Qed.
-
-CoInduction lem_red_ex_1 : forall t t', t ==> t' -> exists s, t --> s /\ s --> t'.
-Proof.
-  intros t t' H.
-  inversion_clear H; ccrush. (* 10 sec *)
+  destruct t; scrush.
 Qed.
