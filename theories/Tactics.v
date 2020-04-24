@@ -40,7 +40,7 @@ Ltac coind_solve C tac :=
 
 Tactic Notation "csolve" hyp(H) "on" "*"  := coind_solve H ltac:(strivial).
 Tactic Notation "csolve" hyp(H) "on" "*" "using" tactic(tac) := coind_solve H tac.
-Tactic Notation "csolve" "on" "*" := coind_solve 0 ltac:(scrush).
+Tactic Notation "csolve" "on" "*" := coind_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" "*" "using" tactic(tac) := coind_solve 0 tac.
 
 Ltac coind_on_solve C tac :=
@@ -61,12 +61,12 @@ Ltac coind_on_solve C tac :=
 
 Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) := do n intro; coind_on_solve H ltac:(strivial).
 Tactic Notation "csolve" hyp(H) "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve H tac.
-Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(scrush).
+Tactic Notation "csolve" "on" "hyp" int_or_var(n) := do n intro; coind_on_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" "hyp" int_or_var(n) "using" tactic(tac) := do n intro; coind_on_solve 0 tac.
 
 Tactic Notation "csolve" hyp(H) "on" ident(n) := intros until n; revert n; coind_on_solve H ltac:(strivial).
 Tactic Notation "csolve" hyp(H) "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve H tac.
-Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(scrush).
+Tactic Notation "csolve" "on" ident(n) := intros until n; revert n; coind_on_solve 0 ltac:(ccrush).
 Tactic Notation "csolve" "on" ident(n) "using" tactic(tac) := intros until n; revert n; coind_on_solve 0 tac.
 
 Tactic Notation "coinduction" ident(H) := autounfold with shints; cofix H; csolve H using strivial.

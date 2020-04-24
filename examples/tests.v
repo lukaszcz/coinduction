@@ -4,14 +4,14 @@ From Hammer Require Import Tactics.
 
 CoInduction lem_eq : forall (A : Type) (s : Streams.Stream A), Streams.EqSt s s.
 Proof.
-  scrush.
+  cauto.
 Qed.
 
 Import Lists.Streams.
 
 CoInduction lem_eq_nat : forall s : Stream nat, EqSt s s.
 Proof.
-  scrush.
+  cauto.
 Qed.
 
 Print lem_eq.
@@ -27,7 +27,7 @@ Print lem_eq2.
 
 CoInduction lem_sym : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt s2 s1.
 Proof.
-  inversion 1; sauto.
+  inversion 1; cauto.
 Qed.
 
 CoInduction lem_trans : forall (A : Type) (s1 s2 s3 : Stream A), EqSt s1 s2 -> EqSt s2 s3 -> EqSt s1 s3.
@@ -35,7 +35,7 @@ Proof.
   intros A s1 s2 s3 H1 H2.
   inversion_clear H1.
   inversion_clear H2.
-  scrush.
+  cauto.
 Qed.
 
 CoFixpoint plusone s := match s with Cons x t => Cons (x + 1) (plusone t) end.
@@ -51,7 +51,7 @@ Print lem_plusone.
 
 CoInduction lem_plusone_1 : forall s, EqSt (plus s ones) (plusone s).
 Proof.
-  scrush.
+  cauto.
 Qed.
 
 Lemma lem_plusone_2 : forall s, EqSt (plus s ones) (plusone s).
@@ -65,14 +65,14 @@ CoInductive EqSt2 {A : Type} : Stream A -> Stream A -> Prop :=
 CoInduction lem_st_to_st2 : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt2 s1 s2.
 Proof.
   destruct s1 eqn:?, s2 eqn:?.
-  inversion 1; scrush.
+  inversion 1; cauto.
 Qed.
 
 Print lem_st_to_st2.
 
 CoInduction lem_st2_to_st : forall (A : Type) (s1 s2 : Stream A), EqSt2 s1 s2 -> EqSt s1 s2.
 Proof.
-  inversion 1; scrush.
+  inversion 1; cauto.
 Qed.
 
 Print lem_st2_to_st.
@@ -84,21 +84,21 @@ Qed.
 
 CoInduction lem_two : forall (A : Type) (s1 s2 : Stream A), EqSt s1 s2 -> EqSt s2 s1 /\ EqSt s1 s2.
 Proof.
-  inversion 1; sauto.
+  inversion 1; cauto.
 Qed.
 
 Print lem_two.
 
 CoInduction lem_ex : forall (A : Type) (s : Stream A), exists s', EqSt2 s s'.
 Proof.
-  destruct s; sauto.
+  cauto.
 Qed.
 
 Print lem_ex.
 
 CoInduction lem_ex_2 : forall (A : Type) (s : Stream A), exists s', EqSt2 s' s.
 Proof.
-  destruct s; sauto.
+  cauto.
 Qed.
 
 Print lem_ex_2.
@@ -111,8 +111,7 @@ Proof.
   intros A s1 s2 H.
   inversion_clear H.
   generalize (CH A s0 s3 X); intro HH.
-  destruct HH as [ s H ].
-  eexists; constructor; eauto.
+  cauto.
 Qed.
 
 Print lem_ex_impl.
@@ -125,14 +124,14 @@ Lemma lem_plus : forall s1 s2 x y, plus (Cons x s1) (Cons y s2) = Cons (x + y) (
 Proof.
   intros.
   rewrite <- (peek_eq__Stream nat) at 1.
-  scrush.
+  cauto.
 Qed.
 
 CoInduction lem_plus_st : forall s1 s2, PlusSt s1 s2 (plus s1 s2).
 Proof.
   destruct s1 eqn:?, s2 eqn:?.
   rewrite lem_plus.
-  scrush.
+  cauto.
 Qed.
 
 CoInductive GeqSt : Stream nat -> Stream nat -> Prop :=
@@ -225,5 +224,5 @@ Qed.
 
 CoInduction lem_eeq_2 : forall t, exteq t t.
 Proof.
-  scrush.
+  cauto.
 Qed.

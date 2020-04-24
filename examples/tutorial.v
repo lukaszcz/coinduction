@@ -17,18 +17,32 @@ Notation "A == B" := (Eq A B) (at level 70).
 
 CoInduction lem_eq_refl : forall t, t == t.
 Proof.
-  destruct t; scrush.
+  cauto.
 Qed.
 
 CoInduction lem_eq_sym : forall s t, s == t -> t == s.
 Proof.
-  inversion 1; scrush.
+  intros.
+  generalize (CH t s); intro.
+  destruct t.
+  Show Proof.
+  (* The proof does not satisfy the "weak case restriction" and our
+  translation will fail. The problem is forward reasoning with the
+  coinductive hypothesis, followed by destructing a term which was
+  used as an argument to the coinductive hypothesis. *)
+
+  Restart.
+
+  intros; destruct t; destruct s; inversion_clear H; econstructor; eauto.
+
+  Restart.
+
+  cauto.
 Qed.
 
 CoInduction lem_eq_trans : forall t1 t2 t3, t1 == t2 -> t2 == t3 -> t1 == t3.
 Proof.
-  intros t1 t2 t3 H1 H2.
-  destruct H1; inversion_clear H2; econstructor; eauto.
+  cauto.
 Qed.
 
 CoInductive Red : term -> term -> Set :=
@@ -41,24 +55,24 @@ Notation "A ==> B" := (Red A B) (at level 70).
 
 CoInduction lem_red_refl : forall t, t ==> t.
 Proof.
-  destruct t; scrush.
+  cauto.
 Qed.
 
 CoInduction lem_eq_to_red : forall t1 t2, t1 == t2 -> t1 ==> t2.
 Proof.
-  pose lem_eq_refl; inversion 1; scrush.
+  cauto using lem_eq_refl.
 Qed.
 
 CoInduction lem_red_trans : forall t1 t2 t3, t1 ==> t2 -> t2 ==> t3 -> t1 ==> t3.
 Proof.
   intros t1 t2 t3 H1 H2.
   destruct H1; inversion_clear H2; econstructor; eauto.
+  (* "cauto" can prove this in 1.7s *)
 Qed.
 
 CoInduction lem_red_ex : forall t, { s & t ==> s }.
 Proof.
-  intro t.
-  destruct t; pose lem_red_refl; scrush.
+  intro t; destruct t; cauto using lem_red_refl.
 Qed.
 
 CoInductive Peak : term -> term -> term -> Set :=
@@ -78,29 +92,28 @@ CoInduction lem_peak_rev : forall s t t', Peak s t t' -> (s ==> t) * (s ==> t').
 Proof.
   intros s t t' H.
   inversion_clear H.
-  - scrush.
-  - scrush.
+  - cauto.
+  - cauto.
   - generalize (CH s0 s1 s2 H0); intro.
     generalize (CH t0 t1 t2 H1); intro.
-    scrush.
+    cauto.
   - generalize (CH s0 s' t1 H0); intro.
     generalize (CH s0 s' t2 H1); intro.
-    scrush.
+    cauto.
   - generalize (CH s0 t1 s' H0); intro.
     generalize (CH s0 t2 s' H1); intro.
-    scrush.
+    cauto.
   - generalize (CH s0 s1 t1 H0); intro.
     generalize (CH s0 s2 t2 H1); intro.
-    scrush.
+    cauto.
 Qed.
 
 CoInduction lem_confl : forall s t t', Peak s t t' -> { s' & (t ==> s') * (t' ==> s') }.
 Proof.
   intros s t t' H.
   inversion_clear H.
-  - scrush.
-  - generalize (CH s0 t0 t'0 H0); intro.
-    simp_hyps; eexists; split; constructor; eauto.
+  - cauto.
+  - cauto.
   - generalize (CH s0 s1 s2 H0); generalize (CH t0 t1 t2 H1); intros.
     simp_hyps; eexists; split; constructor; eauto.
   - generalize (CH s0 s' t1 H0); intro.
@@ -131,5 +144,5 @@ Notation "A --> B" := (Red0 A B) (at level 70).
 
 CoInduction lem_red0_refl : forall t, t --> t.
 Proof.
-  destruct t; scrush.
+  cauto.
 Qed.

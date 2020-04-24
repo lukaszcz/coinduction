@@ -31,13 +31,12 @@ To compile the examples you need to install
 [CoqHammer](https://github.com/lukaszcz/coqhammer) reconstruction
 tactics.
 
-Because CoqHammer tactics sometimes perform unnecessary case analysis
-on equality proofs, even for "first-order" statements they
-occasionally produce proofs that do not satify the "weak case
-restriction". In such a case the translation may fail to produce a
-guarded Coq proof. A workaround is to manually perform the needed
-inversions before invoking the automated tactics. See
-[`examples/practical.v`](examples/practical.v).
+Because CoqHammer tactics sometimes perform unnecessary forward
+reasoning followed by case analysis, they occasionally produce proofs
+that do not satify the "weak case restriction", which makes our
+translation fail. To reduce the probability of this happening, use the
+"c-variants" of the tactics: `cauto`, `csimpl` and `ccrush`. See
+[`examples/tutorial.v`](examples/tutorial.v).
 
 Papers
 ------
